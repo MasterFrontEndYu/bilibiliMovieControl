@@ -8,10 +8,8 @@ import { browser } from "wxt/browser";
 import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
 import { getSoftName } from "@/utils/bili";
-import StyledButton from "@/components/StyledButton";
 
 // TODO 全局配置修改为，可以添加多个网页地址，让插件生效。目前只针对B站。
-
 
 export default function App() {
     const {
@@ -34,7 +32,7 @@ export default function App() {
         handleArchive,
         loadHistory,
         openOptions,
-        handleUpdateOpRanges
+        handleUpdateOpRanges,
     } = useBiliConfig();
 
     const [showTimeManager, setShowTimeManager] = createSignal(false);
@@ -52,91 +50,102 @@ export default function App() {
     });
 
     return (
-        <div
-            style={{
-                position: "relative",
-                width: "280px",
-                padding: "15px",
-                display: "flex",
-                "flex-direction": "column",
-                gap: "12px",
-                background: "#fff",
-            }}
-        >
-            <h3
-                style={{
-                    display: "flex",
-                    "align-items": "center",
-                    "justify-content": "center",
-                    margin: "0",
-                    "font-size": "16px",
-                    color: "#fb7299",
-                }}
-            >
-                {getSoftName()}
-                <span
-                    style={{
-                        "font-size": "10px",
-                        margin: "0 6px",
-                        padding: "2px 4px",
-                        background: isPageReady() ? "#4caf50" : "#9e9e9e",
-                        color: "white",
-                        "border-radius": "3px",
-                    }}
-                >
-                    {isPageReady() ? "已就绪" : "待命中"}
-                </span>
-                <StyledButton
-                    variant="ghost"
-                    size="small"
-                    onClick={openOptions}
-                    icon={<Settings size={14} />}
-                >
-                    设置
-                </StyledButton>
-                <button class="btn btn-primary">Primary</button>
-            </h3>
+        <div class="card bg-base-100 shadow-xl rounded-box p-4 w-72 gap-3">
 
-            <div
-                style={{
-                    display: "flex",
-                    gap: "12px",
-                    "justify-content": "center",
-                }}
-            >
-                <For each={["frame", "manual"] as const}>
-                    {(m) => (
-                        <label
-                            style={{
-                                display: "flex",
-                                "align-items": "center",
-                                gap: "4px",
-                                "font-size": "12px",
-                                cursor: "pointer",
-                            }}
+            <Show when={!showTimeManager()}>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center flex-1 font-bold">
+                        <h1 class="flex flex-1 text-lg align-center"> {getSoftName()}</h1>
+                        <span
+                            class={`badge badge-xs mr-8 ${isPageReady() ? "badge-success" : "badge-ghost"
+                                }`}
                         >
-                            <input
-                                type="radio"
-                                name="mode"
-                                checked={mode() === m}
-                                onChange={() => saveMode(m)}
+                            {isPageReady() ? "已就绪" : "未启动"}
+                        </span>
+                    </div>
+
+                    <button
+                        class=" btn btn-outline btn-primary btn-xs"
+                        onClick={openOptions}
+                    >
+                        <Settings size={12} />
+                        设置
+                    </button>
+                </div>
+
+                <div class="divider m-0">设置多OP跳转</div>
+                <button class="btn btn-dash btn-warning btn-block" onClick={[setShowTimeManager, true]}> <Clock size={14} />管理多个跳过时间段</button>
+
+                <div class="divider m-0">设置视频集合跳转</div>
+
+                <div class="flex gap-3 justify-center">
+                    <For each={["frame", "manual"] as const}>
+                        {(m) => (
+                            <label class={`flex items-center gap-1 cursor-pointer ${mode() === m ? "text-secondary" : ""}`}>
+                                <input
+                                    type="radio"
+                                    name="mode"
+                                    class="radio radio-xs radio-secondary"
+                                    checked={mode() === m}
+                                    onChange={() => saveMode(m)}
+                                />
+                                {m === "frame" ? "帧分析" : "手动切集"}
+                            </label>
+                        )}
+                    </For>
+                </div>
+                <div class="flex flex-col gap-2.5">
+                    <Switch>
+                        <Match when={mode() === "frame"}>
+                            <TimeInput
+                                label="帧"
+                                hour={frameConfig().h}
+                                minute={frameConfig().m}
+                                second={frameConfig().s}
+                                // 必须通过展开运算符更新特定字段
+                                onHourChange={(val) =>
+                                    setFrameConfig({ ...frameConfig(), h: val })
+                                }
+                                onMinuteChange={(val) =>
+                                    setFrameConfig({ ...frameConfig(), m: val })
+                                }
+                                onSecondChange={(val) =>
+                                    setFrameConfig({ ...frameConfig(), s: val })
+                                }
                             />
-                            {m === "frame" ? "帧分析" : "手动切集"}
-                        </label>
-                    )}
-                </For>
-            </div>
+                        </Match>
+                        <Match when={mode() === "manual"}>
+                            <TimeInput
+                                label="切"
+                                hour={jumpConfig().h}
+                                minute={jumpConfig().m}
+                                second={jumpConfig().s}
+                                onHourChange={(val) =>
+                                    setJumpConfig({ ...jumpConfig(), h: val })
+                                }
+                                onMinuteChange={(val) =>
+                                    setJumpConfig({ ...jumpConfig(), m: val })
+                                }
+                                onSecondChange={(val) =>
+                                    setJumpConfig({ ...jumpConfig(), s: val })
+                                }
+                            />
+                        </Match>
+                    </Switch>
+                </div>
 
-            <StyledButton
-                variant="secondary"
-                loadingText="保存中..."
-                onClick={[setShowTimeManager, true]}
-                fullWidth
-                icon={<Clock size={14} />}
-            >
-                管理多个跳过时间段
-            </StyledButton>
+                <div class="flex justify-between gap-2">
+                    <button class="btn btn-soft btn-secondary btn-sm" onClick={[applyConfig, "setting"]}><Settings size={14} /> 应用</button>
+                    <button class="btn btn-soft btn-warning btn-sm" onClick={[applyConfig, "reset"]}><RotateCcw size={14} /> 重置</button>
+                    <button class="btn btn-soft btn-primary btn-sm" onClick={handleArchive}><Save size={14} /> 存档</button>
+                </div>
 
+                <HistoryList
+                    latest={latestHistory()}
+                    pinned={pinnedHistory()}
+                    onLoadHistory={loadHistory}
+                />
+            </Show>
             <Show when={showTimeManager()}>
                 <TimeRangeManager
                     ranges={opRanges()}
@@ -144,90 +153,6 @@ export default function App() {
                     onClose={() => setShowTimeManager(false)}
                 />
             </Show>
-
-            <div
-                style={{
-                    display: "flex",
-                    "flex-direction": "column",
-                    gap: "10px",
-                }}
-            >
-                <Switch>
-                    <Match when={mode() === "frame"}>
-                        <TimeInput
-                            label="帧"
-                            hour={frameConfig().h}
-                            minute={frameConfig().m}
-                            second={frameConfig().s}
-                            // 必须通过展开运算符更新特定字段
-                            onHourChange={(val) =>
-                                setFrameConfig({ ...frameConfig(), h: val })
-                            }
-                            onMinuteChange={(val) =>
-                                setFrameConfig({ ...frameConfig(), m: val })
-                            }
-                            onSecondChange={(val) =>
-                                setFrameConfig({ ...frameConfig(), s: val })
-                            }
-                        />
-                    </Match>
-                    <Match when={mode() === "manual"}>
-                        <TimeInput
-                            label="切"
-                            hour={jumpConfig().h}
-                            minute={jumpConfig().m}
-                            second={jumpConfig().s}
-                            onHourChange={(val) =>
-                                setJumpConfig({ ...jumpConfig(), h: val })
-                            }
-                            onMinuteChange={(val) =>
-                                setJumpConfig({ ...jumpConfig(), m: val })
-                            }
-                            onSecondChange={(val) =>
-                                setJumpConfig({ ...jumpConfig(), s: val })
-                            }
-                        />
-                    </Match>
-                </Switch>
-            </div>
-
-            <div style={{ display: "flex", "justify-content": "space-between" }}>
-                <StyledButton
-                    style={{ padding: "8px 20px" }}
-                    variant="primary"
-                    loadingText="保存中..."
-                    onClick={[applyConfig, "setting"]}
-                    icon={<Settings size={14} />}
-                >
-                    应用
-                </StyledButton>
-
-                <StyledButton
-                    style={{ padding: "8px 20px" }}
-                    variant="reset"
-                    loadingText="重置中..."
-                    onClick={[applyConfig, "reset"]}
-                    icon={<RotateCcw size={14} />}
-                >
-                    重置
-                </StyledButton>
-
-                <StyledButton
-                    style={{ padding: "8px 20px" }}
-                    variant="secondary"
-                    loadingText="存档中..."
-                    onClick={handleArchive}
-                    icon={<Save size={14} />}
-                >
-                    存档
-                </StyledButton>
-            </div>
-
-            <HistoryList
-                latest={latestHistory()}
-                pinned={pinnedHistory()}
-                onLoadHistory={loadHistory}
-            />
         </div>
     );
 }

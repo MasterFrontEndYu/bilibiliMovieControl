@@ -4,39 +4,20 @@ import { getSoftVersion } from "@/utils/bili";
 
 export const OptionsFooter = () => {
     return (
-        <footer style={{
-            display: 'flex',
-            'align-items': 'center',    // 水平居中
-            'justify-content': 'center',
-            "flex-wrap": 'wrap',              // 允许换行
-            width: '100%',
-            'font-size': '12px',
-            color: '#888',
-        }}>
-            <p style={{
-                padding:"10px 0 0",
-                height:"auto"
-            }}>版本：{getSoftVersion()}</p>
-            <div style={{
-                display: 'flex',
-                'align-items': 'center',    // 水平居中
-                'justify-content': 'center',
-                width: '100%',
-                'font-size': '12px',
-                color: '#888',
-                gap: '4px'                  // 控制行间距
-            }}>
+        <footer class="flex flex-wrap items-center justify-center w-full text-xs text-base-content/50">
+            <p class="pt-2.5 h-auto">版本：{getSoftVersion()}</p>
+            <div class="flex items-center justify-center w-full text-xs text-base-content/50 gap-1">
 
-                <p style={{ margin: 0 }}>© 2026</p>
+                <p class="m-0">© 2026</p>
                 <a
                     href="https://github.com/sanguogege/BilibiliMovieControl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: '#fb7299', 'text-decoration': 'none' }}
+                    class="link link-primary no-underline"
                 >
                     BilibiliMovieControl
                 </a>
-                <p style={{ margin: 0 }}>仅供学习与交流使用。</p>
+                <p class="m-0">仅供学习与交流使用。</p>
             </div>
         </footer>
     )
