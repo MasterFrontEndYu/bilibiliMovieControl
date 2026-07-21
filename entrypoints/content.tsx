@@ -18,6 +18,9 @@ export default defineContentScript({
     cssInjectionMode: "manual",
 
     async main(ctx) {
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        
         // --- 1. 响应式状态 ---
         const [opRanges, setOpRanges] = createSignal<TimeRange[]>([]);
         const [frameConfig, setFrameConfig] = createSignal<TimePoint>({
