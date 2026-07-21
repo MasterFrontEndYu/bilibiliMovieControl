@@ -13,13 +13,13 @@ interface TimeInputProps {
 export const TimeInput: Component<TimeInputProps> = (props) => {
     return (
         <div class="flex flex-wrap">
-            <div class="flex flex-1 items-center flex-wrap">
+            <div class="flex flex-1 justify-between items-center flex-wrap">
                 <span class="text-[14px] text-base-content/60 mr-2 block">{props.label}</span>
                 <input
                     type="number"
                     value={props.hour}
                     onInput={e => props.onHourChange(+e.currentTarget.value)}
-                    class="input validator input-bordered input-sm w-14 text-center px-2"
+                    class="input validator input-bordered input-sm w-16 text-center px-2"
                     min="0"
                     max="999999"
                 />

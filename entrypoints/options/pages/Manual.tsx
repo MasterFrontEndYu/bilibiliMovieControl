@@ -31,20 +31,20 @@ export default function HistoryPage() {
     };
 
     return (
-        <div style={{ "max-width": "900px", margin: "0 auto" }}>
-            <header style={{ display: "flex", "justify-content": "space-between", "align-items": "center", "margin-bottom": "40px" }}>
+        <div class="max-w-4xl mx-auto">
+            <header class="flex justify-between items-center mb-10">
                 <div>
-                    <h1 style={{ "font-size": "32px", margin: "0 0 12px 0", color: "#fb7299", "display": "flex", "align-items": "center", gap: "12px" }}>
+                    <h1 class="text-3xl m-0 mb-3 text-primary flex items-center gap-3">
                         <HandGrab size={36} /> 手动存档管理
                     </h1>
-                    <p style={{ color: "#61666d", "font-size": "16px", "line-height": "1.6" }}>
+                    <p class="text-base-content/70 text-base leading-relaxed">
                         系统会手动记录符合连播条件的视频配置，方便下次直接使用。
                     </p>
                 </div>
                 <Show when={pinnedHistory().length > 0}>
                     <button
                         onClick={clearAll}
-                        style={{ padding: "8px 16px", background: "#fff", border: "1px solid #ff4d4f", color: "#ff4d4f", "border-radius": "6px", cursor: "pointer" }}
+                        class="btn btn-outline btn-error btn-sm"
                     >
                         清空记录
                     </button>
@@ -52,41 +52,30 @@ export default function HistoryPage() {
             </header>
 
             {/* 列表容器 */}
-            <div style={{ display: "flex", "flex-direction": "column", gap: "15px" }}>
+            <div class="flex flex-col gap-4">
                 <For each={pinnedHistory()}>
                     {(item) => (
-                        <div style={{
-                            background: "#fff", padding: "20px", "border-radius": "12px",
-                            display: "flex", "justify-content": "space-between", "align-items": "center",
-                            "box-shadow": "0 2px 8px rgba(0,0,0,0.04)", border: "1px solid #e3e5e7"
-                        }}>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ "font-weight": "bold", "font-size": "16px", "margin-bottom": "8px", color: "#18191c" }}>
+                        <div class="bg-base-100 p-5 rounded-xl flex justify-between items-center shadow-sm border border-base-300">
+                            <div class="flex-1">
+                                <div class="font-bold text-base mb-2 text-base-content">
                                     {item.title}
                                 </div>
-                                <div style={{ display: "flex", gap: "20px", "font-size": "13px", color: "#61666d" }}>
+                                <div class="flex gap-5 text-sm text-base-content/70">
                                     <span>⏱️ 跳过: {item.frameConfig.m}分{item.frameConfig.s}秒 - {item.frameConfig.m}分{item.frameConfig.s}秒</span>
                                     <span>📅 记录于: {new Date(item.time).toLocaleString()}</span>
                                 </div>
                             </div>
 
-                            <div style={{ display: "flex", gap: "12px", "margin-left": "20px" }}>
+                            <div class="flex gap-3 ml-5">
                                 <a
                                     href={item.url} target="_blank"
-                                    style={{
-                                        display: "flex", "align-items": "center", gap: "6px", padding: "8px 16px",
-                                        background: "#fb7299", color: "#fff", "text-decoration": "none",
-                                        "border-radius": "6px", "font-size": "14px", "font-weight": "500"
-                                    }}
+                                    class="btn btn-primary btn-sm"
                                 >
                                     <ExternalLink size={16} /> 回看
                                 </a>
                                 <button
                                     onClick={() => deleteItem(item.url)}
-                                    style={{
-                                        padding: "8px", background: "#f6f7f9", border: "none",
-                                        "border-radius": "6px", cursor: "pointer", color: "#9499a0"
-                                    }}
+                                    class="btn btn-ghost btn-sm text-base-content/50"
                                     title="删除此条记录"
                                 >
                                     <Trash2 size={20} />
@@ -98,20 +87,17 @@ export default function HistoryPage() {
 
                 {/* 空状态 */}
                 <Show when={pinnedHistory().length === 0}>
-                    <div style={{
-                        "text-align": "center", padding: "80px 0", background: "#fff",
-                        "border-radius": "16px", border: "1px dashed #e3e5e7"
-                    }}>
-                        <div style={{ "font-size": "40px", "margin-bottom": "16px" }}>📄</div>
-                        <p style={{ color: "#9499a0", margin: "0" }}>暂无手动记录，快去观看合集视频吧</p>
+                    <div class="text-center py-20 bg-base-100 rounded-2xl border-2 border-dashed border-base-300">
+                        <div class="text-4xl mb-4">📄</div>
+                        <p class="text-base-content/50 m-0">暂无手动记录，快去观看合集视频吧</p>
                     </div>
                 </Show>
             </div>
 
             {/* 底部提示 */}
-            <div style={{ "margin-top": "30px", padding: "15px", background: "#eef3f7", "border-radius": "8px", display: "flex", gap: "10px" }}>
-                <Info size={18} color="#00aeec" style={{ "flex-shrink": 0 }} />
-                <p style={{ margin: "0", "font-size": "12px", color: "#61666d", "line-height": "1.5" }}>
+            <div class="mt-8 p-4 bg-info/10 border border-info/20 rounded-xl flex gap-2.5 items-start">
+                <Info size={18} class="text-info shrink-0 mt-0.5" />
+                <p class="m-0 text-xs text-base-content/70 leading-relaxed">
                     <b>关于手动存档：</b> 
                     用户可以在视频播放过程中点击插件图标，选择“手动存档”来保存当前的跳过配置和视频信息，以便下次直接使用。
                     Options 页面会保留最近的 50 条记录。
