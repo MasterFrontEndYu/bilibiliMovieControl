@@ -94,6 +94,7 @@ export default function App() {
                 >
                     设置
                 </StyledButton>
+                <button class="btn btn-primary">Primary</button>
             </h3>
 
             <div
