@@ -1,5 +1,15 @@
 # B 站连播助手 (Bilibili Movie Control)
 
+## 1.3.1
+
+### Patch Changes
+
+- - 使用 daisyUI，美化功能页面，组件。
+
+  - 新增 light 和 dark 主题，根据浏览器的主题模式来切换。
+
+  - 新增功能说明，在详情页面给出具体的指导方案。
+
 ## 1.3.0
 
 ### Minor Changes
