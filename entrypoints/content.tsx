@@ -37,31 +37,11 @@ export default defineContentScript({
     const [mode, setMode] = createSignal<"frame" | "manual">("frame");
     const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 
+    const [isAaaaaa, setIsAaaaaa] = createSignal(false);
+
     let lastUrl = location.href;
     let lastJumpTime = 0;
     let disposeUI: (() => void) | null = null;
-
-    // --- 响应式主题 ---
-    const darkModeMediaQuery: any = window.matchMedia(
-      "(perfers-color-scheme:dark)"
-    );
-
-    const saveTheme = (isDark: boolean) => {
-      browser.runtime
-        .sendMessage({
-          type: "PAGE_THEME",
-          isDark: isDark,
-        })
-        .catch(() => { });
-    };
-
-    saveTheme(darkModeMediaQuery.matches);
-
-    const handleThemeChange = (e: MediaQueryListEvent) => {
-      saveTheme(e.matches);
-    };
-    darkModeMediaQuery.addEventListener('change', handleThemeChange);
-
 
     // --- 2. 核心辅助函数 ---
     const toSeconds = (t: TimePoint) =>
@@ -160,6 +140,8 @@ export default defineContentScript({
 
       const cur = video.currentTime;
 
+        
+
       // 1. 处理多段跳过 (opRanges)
       for (const range of opRanges()) {
         const start = toSeconds(range.start);
@@ -251,7 +233,6 @@ export default defineContentScript({
     ctx.onInvalidated(() => {
       clearInterval(mainTimer);
       browser.runtime.onMessage.removeListener(handleMessage);
-      darkModeMediaQuery.removeEventListener('change', handleThemeChange);
       disposeUI?.();
       document.getElementById("bili-skip-wrapper-unique")?.remove();
       destroyFrameAnalyzer();

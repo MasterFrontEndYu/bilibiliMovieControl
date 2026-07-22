@@ -4,7 +4,7 @@ import { getSoftVersion } from "@/utils/bili";
 
 export const OptionsFooter = () => {
     return (
-        <footer class="flex flex-wrap items-center justify-center w-full text-xs text-base-content/50">
+        <footer class="flex flex-wrap items-center justify-center w-full mt-10 text-xs text-base-content/50">
             <p class="pt-2.5 h-auto">版本：{getSoftVersion()}</p>
             <div class="flex items-center justify-center w-full text-xs text-base-content/50 gap-1">
 

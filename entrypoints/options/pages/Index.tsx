@@ -1,24 +1,32 @@
-import { Settings, Info } from 'lucide-solid';
+import { Settings, Info, CircleAlert } from 'lucide-solid';
+
+import { MAX_HISTORY_LENGTH } from "@/utils/bili";
 
 export default function Home() {
   return (
-    <div class="max-w-5xl mx-auto px-4 py-6 md:py-10">
+    <div class="max-w-4xl mx-auto">
       {/* ===== 头部 ===== */}
-      <header class="mb-8 md:mb-12">
-        <div class="flex items-center gap-3 mb-2">
-          <div class="bg-primary/10 p-2.5 rounded-2xl text-primary">
-            <Settings size={32} />
-          </div>
-          <div>
-            <h1 class="text-2xl md:text-3xl font-bold m-0 text-base-content">
-              功能讲解
-            </h1>
-            <p class="text-base-content/60 text-sm md:text-base leading-relaxed mt-0.5">
-              此插件的基本功能解释 —— 助你高效跳过片头与片尾
-            </p>
-          </div>
+      <header class="flex justify-between items-center mb-10">
+        <div>
+          <h1 class="text-3xl mb-3 text-primary flex items-center gap-3">
+            <Info size={36} /> 功能讲解
+          </h1>
+          <p class="text-base-content/70 text-base leading-relaxed">
+            此插件的基本功能解释 —— 助你高效跳过片头与片尾
+          </p>
         </div>
       </header>
+
+      <div class="bg-primary/5 border border-primary/20 p-5 rounded-xl mb-8 flex gap-4 items-start">
+        <CircleAlert class="text-primary shrink-0 mt-0.5" size={24} />
+        <div>
+          <strong class="text-primary text-base">适用范围说明</strong>
+          <p class="mt-1 m-0 text-base-content/70 text-sm">
+            本插件仅针对 B 站用户上传的<strong>“合集”</strong>（即播放器右侧显示选集列表的视频）生效。对电影、番剧正片或普通单视频无效。
+          </p>
+        </div>
+      </div>
+
 
       {/* ===== 两大核心功能：网格卡片 ===== */}
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -49,7 +57,7 @@ export default function Home() {
               <span class="text-secondary">▶️</span> 跳转下一 P
             </h2>
             <p class="text-sm text-base-content/80 leading-relaxed">
-              两种模式可选，适配不同视频类型。
+              两种模式可选，适配不同跳转方式。
             </p>
             <div class="space-y-3 mt-1">
               <div class="flex items-start bg-base-200/50 rounded-xl p-3">
@@ -65,7 +73,7 @@ export default function Home() {
                 <p class="felx-1 text-sm text-base-content/70 leading-relaxed m-0">
                   视频播放到设定时间点直接跳转。
                   <br />
-                  <span class="text-xs text-base-content/50">适合时间点稳定的剧集，少删减内容导致的切片时间点不一致</span>
+                  <span class="text-xs text-base-content/50">适合时间点稳定的剧集，多删减内容的切片时间点会不一致</span>
                 </p>
               </div>
             </div>
@@ -85,14 +93,14 @@ export default function Home() {
                 <span class="badge badge-outline badge-sm">手动</span>
                 显示最新 3 条
               </div>
-              <p class="text-sm text-base-content/60 mt-1">详情页保存最近 20 条，方便回溯。</p>
+              <p class="text-sm text-base-content/60 mt-1">详情页保存最近 { MAX_HISTORY_LENGTH } 条，方便回溯。</p>
             </div>
             <div class="bg-base-200/60 rounded-xl p-4">
               <div class="flex items-center gap-2 text-sm font-semibold text-base-content">
                 <span class="badge badge-outline badge-sm">自动</span>
                 显示最新 2 条
               </div>
-              <p class="text-sm text-base-content/60 mt-1">详情页保存最近 20 条，随时查找历史记录。</p>
+              <p class="text-sm text-base-content/60 mt-1">详情页保存最近 { MAX_HISTORY_LENGTH } 条，随时查找历史记录。</p>
             </div>
           </div>
         </div>

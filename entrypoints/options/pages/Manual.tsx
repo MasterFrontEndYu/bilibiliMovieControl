@@ -3,6 +3,8 @@ import { createSignal, onMount, For, Show } from 'solid-js';
 import { Trash2, ExternalLink, Info, HandGrab } from 'lucide-solid';
 import { browser } from 'wxt/browser';
 
+import { MAX_HISTORY_LENGTH } from "@/utils/bili";
+
 // 定义和 Background/Popup 一致的接口
 import type { HistoryItem } from '@/assets/types';
 
@@ -34,7 +36,7 @@ export default function HistoryPage() {
         <div class="max-w-4xl mx-auto">
             <header class="flex justify-between items-center mb-10">
                 <div>
-                    <h1 class="text-3xl m-0 mb-3 text-primary flex items-center gap-3">
+                    <h1 class="text-3xl  mb-3 text-primary flex items-center gap-3">
                         <HandGrab size={36} /> 手动存档管理
                     </h1>
                     <p class="text-base-content/70 text-base leading-relaxed">
@@ -100,7 +102,7 @@ export default function HistoryPage() {
                 <p class="m-0 text-xs text-base-content/70 leading-relaxed">
                     <b>关于手动存档：</b> 
                     用户可以在视频播放过程中点击插件图标，选择“手动存档”来保存当前的跳过配置和视频信息，以便下次直接使用。
-                    Options 页面会保留最近的 50 条记录。
+                    Options 页面会保留最近的 {MAX_HISTORY_LENGTH} 条记录。
                     但popup页面指挥显示最新的 2 条记录
                 </p>
             </div>

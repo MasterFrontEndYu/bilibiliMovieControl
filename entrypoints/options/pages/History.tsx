@@ -3,6 +3,8 @@ import { createSignal, onMount, For, Show } from 'solid-js';
 import { Trash2, ExternalLink, History as HistoryIcon, Info } from 'lucide-solid';
 import { browser } from 'wxt/browser';
 
+import { MAX_HISTORY_LENGTH } from "@/utils/bili";
+
 import type { HistoryItem } from '@/assets/types';
 
 export default function HistoryPage() {
@@ -33,7 +35,7 @@ export default function HistoryPage() {
         <div class="max-w-4xl mx-auto">
             <header class="flex justify-between items-center mb-10">
                 <div>
-                    <h1 class="text-3xl m-0 mb-3 text-primary flex items-center gap-3">
+                    <h1 class="text-3xl mb-3 text-primary flex items-center gap-3">
                         <HistoryIcon size={36} /> 自动存档管理
                     </h1>
                     <p class="text-base-content/70 text-base leading-relaxed">
@@ -98,7 +100,7 @@ export default function HistoryPage() {
                 <Info size={18} class="text-info shrink-0 mt-0.5" />
                 <p class="m-0 text-xs text-base-content/70 leading-relaxed">
                     <b>关于自动存档：</b> 插件会在后台检测到视频为“合集/列表”且符合读帧条件时自动创建此记录。
-                    Options 页面会保留最近的 50 条记录。
+                    Options 页面会保留最近的 { MAX_HISTORY_LENGTH } 条记录。
                 </p>
             </div>
         </div>

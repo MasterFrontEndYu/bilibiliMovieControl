@@ -1,5 +1,10 @@
 import { browser } from 'wxt/browser';
 
+
+export const MAX_HISTORY_LENGTH = 20;
+
+
+
 /**
  * 检测当前页面是否为合集页，并返回合集标题
  */

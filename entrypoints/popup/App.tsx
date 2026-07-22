@@ -9,8 +9,6 @@ import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
 import { getSoftName } from "@/utils/bili";
 
-import { themeChange } from "theme-change";
-
 // TODO 全局配置修改为，可以添加多个网页地址，让插件生效。目前只针对B站。
 
 export default function App() {
@@ -39,7 +37,6 @@ export default function App() {
 
   const [showTimeManager, setShowTimeManager] = createSignal(false);
 
-  const [testSignal, setTestSignal] = createSignal("")
   onMount(async () => {
     await initFromStorage();
 
@@ -49,11 +46,6 @@ export default function App() {
         setIsPageReady(msg.isCollection);
       }
       if (msg.type === "REFRESH_HISTORY") setLatestHistory(msg.data);
-
-      if (msg.type === "PAGE_THEME") {
-        themeChange(msg.data);
-        setTestSignal(msg.data ? "黑丝" : "垃圾")
-      }
     });
   });
 
@@ -81,7 +73,7 @@ export default function App() {
           </button>
         </div>
 
-        <div class="divider m-0">设置多OP跳转{testSignal()}</div>
+        <div class="divider m-0">设置多OP跳转</div>
         <button class="btn btn-dash btn-warning btn-block" onClick={[setShowTimeManager, true]}> <Clock size={14} />管理多个跳过时间段</button>
 
         <div class="divider m-0">设置视频集合跳转</div>

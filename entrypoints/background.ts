@@ -2,8 +2,9 @@ import { browser } from "wxt/browser";
 import { getCollectionTitle } from "@/utils/bili";
 import { HistoryItem, TimePoint, TimeRange } from "../assets/types";
 
+import { MAX_HISTORY_LENGTH } from "@/utils/bili";
+
 const DEBOUNCE_TIME = 2000;
-const MAX_HISTORY_LENGTH = 20;
 const processedLogs = new Map<string, number>();
 
 // TODO: 1. 目前的存档逻辑比较简单，后续可以考虑更复杂的去重和更新策略（如根据 URL + 跳过配置来判断是否为同一视频）
@@ -47,7 +48,7 @@ export default defineBackground(() => {
 
             // --- 2. 唯一性去重 ---
             const filteredHistory = history.filter(
-                (item: HistoryItem) => cleanBiliUrl(item.url) !== cleanedUrl
+                (item: HistoryItem) => cleanBiliUrl(item.url) !== cleanedUrl,
             );
 
             const newHistory = [currentData, ...filteredHistory].slice(
@@ -123,7 +124,7 @@ export default defineBackground(() => {
                         type: "REFRESH_HISTORY",
                         data: newLatest.slice(0, 2), // 直接传递数组
                     })
-                    .catch(() => { });
+                    .catch(() => {});
             }
         }
     });
