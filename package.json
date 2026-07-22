@@ -29,7 +29,8 @@
         "daisyui": "^5.7.0",
         "lucide-solid": "^1.25.0",
         "solid-js": "^1.9.14",
-        "tailwindcss": "^4.3.3"
+        "tailwindcss": "^4.3.3",
+        "theme-change": "^3.0.4"
     },
     "devDependencies": {
         "@changesets/cli": "^2.31.1",
