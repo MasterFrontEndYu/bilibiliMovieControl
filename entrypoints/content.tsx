@@ -37,8 +37,6 @@ export default defineContentScript({
     const [mode, setMode] = createSignal<"frame" | "manual">("frame");
     const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 
-    const [isAaaaaa, setIsAaaaaa] = createSignal(false);
-
     let lastUrl = location.href;
     let lastJumpTime = 0;
     let disposeUI: (() => void) | null = null;
