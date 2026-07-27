@@ -16,6 +16,9 @@ export default function Layout(props: ParentProps) {
           <A href="/" end activeClass="active-link" class="flex items-center gap-2.5 px-3 py-3 no-underline text-base-content/70 rounded-lg transition-all duration-200 hover:bg-primary/5">
             <Settings size={18} /> 功能讲解
           </A>
+          <A href="/status" activeClass="active-link" class="flex items-center gap-2.5 px-3 py-3 no-underline text-base-content/70 rounded-lg transition-all duration-200 hover:bg-primary/5">
+            <History size={18} /> 状态设置
+          </A>
           <A href="/history" activeClass="active-link" class="flex items-center gap-2.5 px-3 py-3 no-underline text-base-content/70 rounded-lg transition-all duration-200 hover:bg-primary/5">
             <History size={18} /> 自动存档
           </A>

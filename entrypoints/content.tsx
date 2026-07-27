@@ -138,7 +138,7 @@ export default defineContentScript({
 
       const cur = video.currentTime;
 
-        
+
 
       // 1. 处理多段跳过 (opRanges)
       for (const range of opRanges()) {
