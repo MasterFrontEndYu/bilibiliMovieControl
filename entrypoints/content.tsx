@@ -37,8 +37,6 @@ export default defineContentScript({
     const [mode, setMode] = createSignal<"frame" | "manual">("frame");
     const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 
-    const [isAaaaaa, setIsAaaaaa] = createSignal(false);
-
     let lastUrl = location.href;
     let lastJumpTime = 0;
     let disposeUI: (() => void) | null = null;
@@ -140,7 +138,7 @@ export default defineContentScript({
 
       const cur = video.currentTime;
 
-        
+
 
       // 1. 处理多段跳过 (opRanges)
       for (const range of opRanges()) {
