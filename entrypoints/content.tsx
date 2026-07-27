@@ -18,10 +18,13 @@ export default defineContentScript({
   cssInjectionMode: "manual",
 
   async main(ctx) {
+    // 初始等待 DOM 就绪（可优化为更精确的等待）
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
-    // --- 1. 响应式状态 ---
+    // --- 响应式状态 ---
     const [opRanges, setOpRanges] = createSignal<TimeRange[]>([]);
+    const [mode, setMode] = createSignal<"frame" | "manual">("frame");
+    const [isAnalyzing, setIsAnalyzing] = createSignal(false);
     const [frameConfig, setFrameConfig] = createSignal<TimePoint>({
       h: 0,
       m: 0,
@@ -34,38 +37,53 @@ export default defineContentScript({
     });
 
     const [isCollectionPage, setIsCollectionPage] = createSignal(false);
-    const [mode, setMode] = createSignal<"frame" | "manual">("frame");
-    const [isAnalyzing, setIsAnalyzing] = createSignal(false);
+    const [isAutoHandle, setIsAutoHandle] = createSignal<boolean>(true);
+
+    
 
     let lastUrl = location.href;
     let lastJumpTime = 0;
     let disposeUI: (() => void) | null = null;
 
-    // --- 2. 核心辅助函数 ---
+    let lastSentReadyState = false; 
+
+    // --- 辅助函数 ---
     const toSeconds = (t: TimePoint) =>
       (t.h || 0) * 3600 + (t.m || 0) * 60 + (t.s || 0);
 
+    // 修复：正确处理 false 值
     const updateConfig = (data: any) => {
+      if (data.isAutoHandle !== undefined) setIsAutoHandle(data.isAutoHandle);
       if (data.opRanges) setOpRanges(data.opRanges);
       if (data.frameConfig) setFrameConfig(data.frameConfig);
       if (data.jumpConfig) setJumpConfig(data.jumpConfig);
       if (data.mode) setMode(data.mode);
-
       if (data.analyzerSettings) {
         updateAnalyzerConfig(data.analyzerSettings);
       }
     };
 
-    // UI 挂载
+    // 清理 UI（销毁 Solid 根 + 移除 DOM 挂载点）
+    const cleanupUI = () => {
+      disposeUI?.();
+      disposeUI = null;
+      const el = document.getElementById("bili-skip-wrapper-unique");
+      if (el) el.remove();
+    };
+
+    // 挂载 UI（每次调用先清理旧实例，再创建新实例）
     const mountUI = () => {
       if (!isCollectionPage()) return;
+
+      // 先清理，避免重复根
+      cleanupUI();
+
       const anchor =
         document.getElementById("viewbox_report") ||
         document.querySelector(".video-info-title") ||
         document.querySelector(".cl-info-title");
 
-      if (!anchor || document.getElementById("bili-skip-wrapper-unique"))
-        return;
+      if (!anchor) return;
 
       const mountPoint = document.createElement("span");
       mountPoint.id = "bili-skip-wrapper-unique";
@@ -138,9 +156,7 @@ export default defineContentScript({
 
       const cur = video.currentTime;
 
-
-
-      // 1. 处理多段跳过 (opRanges)
+      // 1. 多段跳过
       for (const range of opRanges()) {
         const start = toSeconds(range.start);
         const end = toSeconds(range.end);
@@ -150,17 +166,16 @@ export default defineContentScript({
         }
       }
 
-      // 2. 处理自动/手动切集逻辑
+      // 2. 切集逻辑
       if (mode() === "manual") {
         const jumpTime = toSeconds(jumpConfig());
         if (jumpTime > 0 && cur >= jumpTime) executeJump();
       } else {
-        // 自动模式：到达精准时间点开启分析
+        // 自动模式
         const analyzeStartTime = toSeconds(frameConfig());
         if (analyzeStartTime > 0 && cur >= analyzeStartTime) {
           if (!isAnalyzing()) setIsAnalyzing(true);
-
-          // 执行帧分析逻辑 (接口已简化，只传 video 和状态)
+          // 检查片尾
           if (checkEndingByFrame(video, !video.paused)) {
             executeJump();
             setIsAnalyzing(false);
@@ -171,68 +186,90 @@ export default defineContentScript({
       }
     };
 
-    // --- 3. 初始化 ---
+    // --- 初始化 ---
     const stored = await browser.storage.local.get([
       "opRanges",
       "frameConfig",
       "jumpConfig",
       "mode",
+      "isAutoHandle",
     ]);
     updateConfig(stored);
-
-    // 初始启动分析器
     initFrameAnalyzer();
 
-    // 监听消息更新
+    // --- 消息监听 ---
     const handleMessage = (msg: any, sender: any, sendResponse: any) => {
       if (msg.type === "UPDATE_CONFIG") {
         updateConfig(msg.data);
+        // 配置更新后可能需要重新挂载 UI（因为数据变了）
+        mountUI();
       }
       if (msg.type === "QUERY_READY_STATUS") {
-        sendResponse({ isCollection: isCollectionPage() });
+        sendResponse({ isCollection: isCollectionPage() && isAutoHandle() });
       }
-      mountUI();
     };
     browser.runtime.onMessage.addListener(handleMessage);
 
-    // --- 4. 主循环 ---
-    const mainTimer = setInterval(() => {
+    // --- 主循环 ---
+    const mainTimer = setInterval(async () => {
       const isCol = !!(
         document.querySelector(".video-pod") ||
         document.querySelector(".multi-page") ||
         document.querySelector(".cur-list")
       );
+      const res = await browser.storage.local.get({ isAutoHandle: true });
 
-      if (isCol !== isCollectionPage()) {
-        setIsCollectionPage(isCol);
-        browser.runtime
-          .sendMessage({
-            type: "SYNC_PAGE_READY",
-            isCollection: isCol,
-          })
-          .catch(() => { });
+      const shouldActivate = isCol && res.isAutoHandle as boolean;
+
+      // 只在状态变化时发送消息
+      if (shouldActivate !== lastSentReadyState) {
+        lastSentReadyState = shouldActivate;
+        browser.runtime.sendMessage({
+          type: "SYNC_PAGE_READY",
+          isCollection: shouldActivate,
+        });
       }
 
-      if (isCol) {
+      if (shouldActivate) {
+        // 同步页面类型状态（仅在第一次变为 true 时触发 UI 变化）
+        if (isCol !== isCollectionPage()) {
+          setIsCollectionPage(isCol);
+        }
+
+        // URL 变化时重置并重新挂载
         if (location.href !== lastUrl) {
           lastUrl = location.href;
           lastJumpTime = 0;
           resetFrameAnalyzer();
+          // 切换视频时清理旧 UI，再重新挂载
+          cleanupUI();
           setTimeout(mountUI, 1000);
+        } else {
+          // 未换 URL 但需要确保 UI 存在（如果被意外移除则重建）
+          const existing = document.getElementById("bili-skip-wrapper-unique");
+          if (!existing) {
+            mountUI();
+          }
         }
-        mountUI();
+
+        // 执行主逻辑（每秒一次）
         runControlLogic();
       } else {
-        const ui = document.getElementById("bili-skip-wrapper-unique");
-        if (ui) ui.remove();
+        // 不再激活：清理 UI 并重置状态
+        if (isCollectionPage()) {
+          setIsCollectionPage(false);
+        }
+        cleanupUI();
+        // 重置消息发送状态，以便再次激活时重新发送
+        lastSentReadyState = false;
       }
     }, 1000);
 
+    // --- 清理 ---
     ctx.onInvalidated(() => {
       clearInterval(mainTimer);
       browser.runtime.onMessage.removeListener(handleMessage);
-      disposeUI?.();
-      document.getElementById("bili-skip-wrapper-unique")?.remove();
+      cleanupUI();
       destroyFrameAnalyzer();
     });
   },
