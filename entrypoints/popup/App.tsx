@@ -43,7 +43,7 @@ export default function App() {
     // 监听后台的自动更新广播
     browser.runtime.onMessage.addListener((msg) => {
       if (msg.type === "SYNC_PAGE_READY") {
-        setIsPageReady(msg.isCollection);
+        setIsPageReady(msg.isPageReady);
       }
       if (msg.type === "REFRESH_HISTORY") setLatestHistory(msg.data);
     });

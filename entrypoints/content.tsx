@@ -38,7 +38,6 @@ export default defineContentScript({
 
     const [isCollectionPage, setIsCollectionPage] = createSignal(false);
     const [isAutoHandle, setIsAutoHandle] = createSignal<boolean>(true);
-
     
 
     let lastUrl = location.href;
@@ -97,39 +96,71 @@ export default defineContentScript({
       disposeUI = render(
         () => (
           <Show when={isCollectionPage()}>
-            <div
-              style={{
-                display: "inline-flex",
-                "align-items": "center",
-                gap: "8px",
-                padding: "1px 12px",
-                background: "#fb7299",
-                color: "white",
-                "border-radius": "8px",
-                "font-size": "12px",
-                "vertical-align": "middle",
-                "box-shadow": "0 2px 6px rgba(251,114,153,0.3)",
-                "font-family": "sans-serif",
-              }}
-            >
-              <span title="跳过段数">⏭ {opRanges().length}段</span>
-              <span style={{ opacity: 0.5 }}>|</span>
-              <span>
-                {mode() === "manual"
-                  ? `🏁 切集起点: ${format(jumpConfig())}`
-                  : `🔍 分析起点: ${format(frameConfig())}`}
-              </span>
-              <span
+            <div style={{ display: "flex", "align-items": "center","justify-content":"space-between", }}>
+              <div
                 style={{
-                  display: "inline-block",
-                  width: "8px",
-                  "margin-left": "4px",
-                  animation: "blink 1s infinite",
-                  color: "#fff",
+                  display: "inline-flex",
+                  "align-items": "center",
+                  gap: "8px",
+                  padding: "1px 12px",
+                  background: "#fb7299",
+                  color: "white",
+                  "border-radius": "8px",
+                  "font-size": "12px",
+                  "vertical-align": "middle",
+                  "box-shadow": "0 2px 6px rgba(251,114,153,0.3)",
+                  "font-family": "sans-serif",
                 }}
               >
-                {isAnalyzing() ? "●" : ""}
-              </span>
+                <span title="跳过段数">⏭ {opRanges().length}段</span>
+                <span style={{ opacity: 0.5 }}>|</span>
+                <span>
+                  {mode() === "manual"
+                    ? `🏁 切集起点: ${format(jumpConfig())}`
+                    : `🔍 分析起点: ${format(frameConfig())}`}
+                </span>
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "8px",
+                    "margin-left": "4px",
+                    animation: "blink 1s infinite",
+                    color: "#fff",
+                  }}
+                >
+                  {isAnalyzing() ? "●" : ""}
+                </span>
+              </div>
+              <div style={{
+                display: `${isAutoHandle() ? 'none' : 'inline-flex'}`,
+                "align-items": "center",
+              }}>
+                <p>当前为用户设置状态</p>
+                <span
+                  style={{
+                    display: "inline-block",
+                    background: "white",
+                    color: "#fb7299",
+                    border: "1px solid #fb7299",
+                    "border-radius": "4px",
+                    padding: "2px 10px",
+                    cursor: "pointer",
+                    "font-size": "12px",
+                    "font-weight": "bold",
+                    transition: "background 0.2s, color 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#fb7299";
+                    e.currentTarget.style.color = "white";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "white";
+                    e.currentTarget.style.color = "#fb7299";
+                  }}
+                >
+                  启用跳过
+                </span>
+              </div>
             </div>
           </Show>
         ),
@@ -201,7 +232,6 @@ export default defineContentScript({
     const handleMessage = (msg: any, sender: any, sendResponse: any) => {
       if (msg.type === "UPDATE_CONFIG") {
         updateConfig(msg.data);
-        // 配置更新后可能需要重新挂载 UI（因为数据变了）
         mountUI();
       }
       if (msg.type === "QUERY_READY_STATUS") {
@@ -217,20 +247,22 @@ export default defineContentScript({
         document.querySelector(".multi-page") ||
         document.querySelector(".cur-list")
       );
+
       const res = await browser.storage.local.get({ isAutoHandle: true });
 
-      const shouldActivate = isCol && res.isAutoHandle as boolean;
+      setIsAutoHandle(res.isAutoHandle as boolean);
+      const active = isCol && res.isAutoHandle as boolean;
 
       // 只在状态变化时发送消息
-      if (shouldActivate !== lastSentReadyState) {
-        lastSentReadyState = shouldActivate;
+      if (isCol !== lastSentReadyState) {
+        lastSentReadyState = isCol;
         browser.runtime.sendMessage({
           type: "SYNC_PAGE_READY",
-          isCollection: shouldActivate,
+          isPageReady: isCol,
         });
       }
 
-      if (shouldActivate) {
+      if (isCol) {
         // 同步页面类型状态（仅在第一次变为 true 时触发 UI 变化）
         if (isCol !== isCollectionPage()) {
           setIsCollectionPage(isCol);
