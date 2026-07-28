@@ -2,27 +2,13 @@ import { browser } from "wxt/browser";
 import { getCollectionTitle } from "@/utils/bili";
 import { HistoryItem, TimePoint, TimeRange } from "../assets/types";
 
-import { MAX_HISTORY_LENGTH } from "@/utils/bili";
+import { MAX_HISTORY_LENGTH, cleanBiliUrl } from "@/utils/bili";
 
 const DEBOUNCE_TIME = 2000;
 const processedLogs = new Map<string, number>();
 
 // TODO: 1. 目前的存档逻辑比较简单，后续可以考虑更复杂的去重和更新策略（如根据 URL + 跳过配置来判断是否为同一视频）
 // TODO: 2. 手动存档要从usebiliConfig里抽离出来，
-
-/**
- * URL 清洗逻辑
- */
-function cleanBiliUrl(url: string): string {
-    try {
-        const u = new URL(url);
-        const p = u.searchParams.get("p");
-        const baseUrl = `${u.origin}${u.pathname}`;
-        return p && p !== "1" ? `${baseUrl}?p=${p}` : baseUrl;
-    } catch (e) {
-        return url;
-    }
-}
 
 export default defineBackground(() => {
     /**
