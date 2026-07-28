@@ -41,11 +41,10 @@ export const useBiliConfig = () => {
             "pinnedHistory",
         ]);
 
-
         const resp = await sendToActiveTab({ type: "QUERY_READY_STATUS" });
 
         // 只要 resp 是 null（非 B站页面或报错），setIsPageReady 就会被设为 false
-        setIsPageReady(!!resp?.isCollection);
+        setIsPageReady(!!resp?.isPageReady);
 
         if (res.opRanges) setOpRanges(res.opRanges as TimeRange[]);
         if (res.frameConfig) setFrameConfig(res.frameConfig as TimePoint);
@@ -64,10 +63,10 @@ export const useBiliConfig = () => {
     const saveMode = async (newMode: "frame" | "manual") => {
         setMode(newMode);
         await browser.storage.local.set({ mode: newMode });
-    
+
         await sendToActiveTab({
             type: "UPDATE_CONFIG",
-            data: {mode: newMode},
+            data: { mode: newMode },
         });
     };
 
@@ -114,10 +113,10 @@ export const useBiliConfig = () => {
             type: "DO_ARCHIVE",
             data: {
                 // 这里利用 getActiveTab 返回的对象
-                tab: { 
-                    id: activeTab.id, 
-                    title: activeTab.title, 
-                    url: activeTab.url 
+                tab: {
+                    id: activeTab.id,
+                    title: activeTab.title,
+                    url: activeTab.url,
                 },
                 config: {
                     mode: mode(),
@@ -141,7 +140,7 @@ export const useBiliConfig = () => {
         await browser.storage.local.set({ opRanges: newRanges });
         await sendToActiveTab({
             type: "UPDATE_CONFIG",
-            data: { opRanges:newRanges },
+            data: { opRanges: newRanges },
         });
     };
 
@@ -185,6 +184,6 @@ export const useBiliConfig = () => {
         handleArchive,
         loadHistory,
         openOptions,
-        handleUpdateOpRanges
+        handleUpdateOpRanges,
     };
 };
