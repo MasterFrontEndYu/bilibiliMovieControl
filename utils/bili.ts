@@ -89,3 +89,29 @@ export const isPageInPinnedHistory = async (url: string) => {
         (item: any) => cleanBiliUrl(item.url) === cleanBiliUrl(url),
     );
 };
+
+
+/**
+ * 创建一个 storage.onChanged 监听器，只处理指定的配置键
+ * @param configKeys 需要监听的配置键列表（如 DEFAULT_CONFIG 的键）
+ * @param onUpdate 当配置变更时的回调函数，传入变更后的配置对象
+ * @returns 一个符合 storage.onChanged 签名的事件处理函数
+ */
+export function createStorageListener<T extends Record<string, any>>(
+    configKeys: (keyof T)[],
+    onUpdate: (partial: Partial<T>) => void,
+) {
+    return (changes: Record<string, any>, area: string) => {
+        if (area !== "local") return;
+        const data: Partial<T> = {};
+        for (const key of configKeys) {
+            const change = changes[key as string];
+            if (change) {
+                data[key] = change.newValue;
+            }
+        }
+        if (Object.keys(data).length) {
+            onUpdate(data);
+        }
+    };
+}
