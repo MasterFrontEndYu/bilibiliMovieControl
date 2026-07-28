@@ -7,8 +7,7 @@ import { MAX_HISTORY_LENGTH, cleanBiliUrl } from "@/utils/bili";
 const DEBOUNCE_TIME = 2000;
 const processedLogs = new Map<string, number>();
 
-// TODO: 1. 目前的存档逻辑比较简单，后续可以考虑更复杂的去重和更新策略（如根据 URL + 跳过配置来判断是否为同一视频）
-// TODO: 2. 手动存档要从usebiliConfig里抽离出来，
+// TODO: 1. 地址问题，合集每个视频地址都不一样。所以手动功能只在一个视频上有效果，需要该改一下
 
 export default defineBackground(() => {
     /**
