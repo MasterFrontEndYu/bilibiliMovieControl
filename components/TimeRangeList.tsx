@@ -16,8 +16,6 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
     const formatTime = (t: { h: number; m: number; s: number }) =>
         [t.h, t.m, t.s].map((v) => String(v).padStart(2, "0")).join(":");
 
-
-
     // 添加到列表（调用 onUpdate）
     const handleConfirm = () => {
         const newRange: TimeRange = {

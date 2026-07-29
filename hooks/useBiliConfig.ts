@@ -23,7 +23,7 @@ export const useBiliConfig = () => {
     });
 
     // --- 4. 基础状态 ---
-    const [mode, setMode] = createSignal<"frame" | "manual">("frame");
+    const [mode, setMode] = createSignal<"frame" | "manual">("manual");
     const [isPageReady, setIsPageReady] = createSignal(false);
     const [latestHistory, setLatestHistory] = createSignal<HistoryItem[]>([]);
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryItem[]>([]);
@@ -64,10 +64,10 @@ export const useBiliConfig = () => {
         setMode(newMode);
         await browser.storage.local.set({ mode: newMode });
 
-        await sendToActiveTab({
-            type: "UPDATE_CONFIG",
-            data: { mode: newMode },
-        });
+        // await sendToActiveTab({
+        //     type: "UPDATE_CONFIG",
+        //     data: { mode: newMode },
+        // });
     };
 
     /**
@@ -93,10 +93,10 @@ export const useBiliConfig = () => {
         // 1. 持久化
         await browser.storage.local.set(configData);
 
-        await sendToActiveTab({
-            type: "UPDATE_CONFIG",
-            data: configData,
-        });
+        // await sendToActiveTab({
+        //     type: "UPDATE_CONFIG",
+        //     data: configData,
+        // });
     };
 
     /**
@@ -138,10 +138,10 @@ export const useBiliConfig = () => {
     const handleUpdateOpRanges = async (newRanges: TimeRange[]) => {
         setOpRanges(newRanges);
         await browser.storage.local.set({ opRanges: newRanges });
-        await sendToActiveTab({
-            type: "UPDATE_CONFIG",
-            data: { opRanges: newRanges },
-        });
+        // await sendToActiveTab({
+        //     type: "UPDATE_CONFIG",
+        //     data: { opRanges: newRanges },
+        // });
     };
 
     /**

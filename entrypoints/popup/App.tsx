@@ -39,16 +39,7 @@ export default function App() {
 
     onMount(async () => {
         await initFromStorage();
-
-        // 监听后台的自动更新广播
         await new Promise((resolve) => setTimeout(resolve, 5000));
-
-        browser.runtime.onMessage.addListener((msg) => {
-            if (msg.type === "SYNC_READY_STATUS") {
-                setIsPageReady(msg.isPageReady);
-            }
-            if (msg.type === "REFRESH_HISTORY") setLatestHistory(msg.data);
-        });
     });
 
     return (

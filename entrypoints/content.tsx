@@ -9,8 +9,12 @@ import {
   resetFrameAnalyzer,
   destroyFrameAnalyzer,
 } from "../utils/frameAnalyzer";
-import { isPageInPinnedHistory,createStorageListener } from "@/utils/bili";
+import { isPageInPinnedHistory, createStorageListener } from "@/utils/bili";
 import { TimeRange, TimePoint } from "@/assets/types";
+
+
+
+import { VideoUI } from "@/components/VideoUI";
 
 // ==================== 类型定义 ====================
 interface Config {
@@ -50,7 +54,7 @@ export default defineContentScript({
       s: 0,
     });
     const [isPageReady, setIsPageReady] = createSignal(false);
-    const [mode, setMode] = createSignal<"frame" | "manual">("frame");
+    const [mode, setMode] = createSignal<"frame" | "manual">("manual");
     const [isAnalyzing, setIsAnalyzing] = createSignal(false);
     const [isAutoHandle, setIsAutoHandle] = createSignal(true);
 
@@ -145,54 +149,17 @@ export default defineContentScript({
         // 渲染 Solid 组件
         disposeUI = render(
           () => (
-            <Show when={isPageReady()}>
-              <div
-                style={{
-                  display: "inline-flex",
-                  "align-items": "center",
-                  gap: "8px",
-                  padding: "1px 12px",
-                  background: "#fb7299",
-                  color: "white",
-                  "border-radius": "8px",
-                  "font-size": "12px",
-                  "vertical-align": "middle",
-                  "box-shadow":
-                    "0 2px 6px rgba(251,114,153,0.3)",
-                  "font-family": "sans-serif",
-                }}
-              >
-                <span title="跳过段数">
-                  ⏭ {opRanges().length} 段
-                </span>
-                <span style={{ opacity: 0.5 }}>|</span>
-                <span>
-                  {mode() === "manual"
-                    ? `🏁 切集起点: ${formatTime(
-                      jumpConfig(),
-                    )}`
-                    : `🔍 分析起点: ${formatTime(
-                      frameConfig(),
-                    )}`}
-                </span>
-                <span
-                  style={{
-                    display: "inline-block",
-                    width: "8px",
-                    "margin-left": "4px",
-                    animation: "blink 1s infinite",
-                    color: "#fff",
-                  }}
-                >
-                  {isAnalyzing() ? "●" : ""}
-                </span>
-              </div>
-            </Show>
+            <VideoUI
+              opRanges={opRanges}
+              formatTime={formatTime}
+              jumpConfig={jumpConfig}
+              frameConfig={frameConfig}
+              mode={mode()}
+              isAnalyzing={isAnalyzing} />
           ),
           mountPoint,
         );
       }
-      // 如果挂载点已存在，Solid 组件会自动响应信号变化，无需操作
     };
 
     // ---------- 5. 跳转逻辑 ----------
@@ -234,6 +201,7 @@ export default defineContentScript({
       // 6.2 切集逻辑
       if (mode() === "manual") {
         const jumpTime = toSeconds(jumpConfig());
+        setIsAnalyzing(false);
         if (jumpTime > 0 && cur >= jumpTime) {
           executeJump();
         }
@@ -285,18 +253,12 @@ export default defineContentScript({
         // 7.3 计算是否运行逻辑（使用内存信号，不再读 storage）
         const runControl = isCol && (isAutoHandle() || cachedIsPinned);
 
+        console.log("runControl:", runControl, "isPageReady:", isPageReady());
+
         // 7.4 更新 ready 状态
         if (runControl !== isPageReady()) {
           setIsPageReady(runControl);
-          // 通知 background（如果希望）
-          if (runControl) {
-            browser.runtime
-              .sendMessage({
-                type: "SYNC_READY_STATUS",
-                isPageReady: runControl,
-              })
-              .catch(() => { });
-          }
+          await browser.storage.local.set({ isPageReady: runControl });
         }
 
         // 7.5 处理 URL 变化
@@ -331,14 +293,6 @@ export default defineContentScript({
     // ---------- 8. 消息监听 ----------
     const handleMessage = (msg: any, sender: any, sendResponse: any) => {
       try {
-        if (msg.type === "UPDATE_CONFIG") {
-          updateConfig(msg.data);
-          // 注意：此处只更新内存，持久化已在 Options 页面完成（或通过 storage.onChanged 同步）
-          mountUI(); // 配置变化刷新 UI
-          // 可以返回响应
-          sendResponse({ success: true });
-          return true; // 保持响应通道
-        }
         if (msg.type === "QUERY_READY_STATUS") {
           sendResponse({ isPageReady: isPageReady() });
           return true;

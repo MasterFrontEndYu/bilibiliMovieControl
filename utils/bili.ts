@@ -85,8 +85,12 @@ export const isPageInPinnedHistory = async (url: string) => {
     if (!res.pinnedHistory || !Array.isArray(res.pinnedHistory)) {
         return false;
     }
+
     return (res.pinnedHistory as any[]).some(
-        (item: any) => cleanBiliUrl(item.url) === cleanBiliUrl(url),
+        (item: any) =>{
+            console.log("item.url:", item.url, "url:", cleanBiliUrl(url));
+            return item.url === cleanBiliUrl(url);
+        },
     );
 };
 
