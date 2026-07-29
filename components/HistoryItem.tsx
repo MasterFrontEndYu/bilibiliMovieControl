@@ -1,11 +1,7 @@
 import { Component } from 'solid-js';
-import type { HistoryItem } from '../assets/types';
+import type {  HistoryItemProps } from '@/assets/types';
 
-interface HistoryItemProps {
-    item: HistoryItem;
-    onClick: (item: HistoryItem) => void;
-    isPinned?: boolean;
-}
+
 
 export const HistoryItemComp: Component<HistoryItemProps> = (props) => {
   const prefix = () => (props.isPinned ? '📌 ' : '🕒 ');

@@ -39,17 +39,14 @@ export const useBiliConfig = () => {
             "mode",
             "latestHistory",
             "pinnedHistory",
+            "isPageReady",
         ]);
-
-        const resp = await sendToActiveTab({ type: "QUERY_READY_STATUS" });
-
-        // 只要 resp 是 null（非 B站页面或报错），setIsPageReady 就会被设为 false
-        setIsPageReady(!!resp?.isPageReady);
 
         if (res.opRanges) setOpRanges(res.opRanges as TimeRange[]);
         if (res.frameConfig) setFrameConfig(res.frameConfig as TimePoint);
         if (res.jumpConfig) setJumpConfig(res.jumpConfig as TimePoint);
         if (res.mode) setMode(res.mode as "frame" | "manual");
+        if (res.isPageReady) setIsPageReady(res.isPageReady as boolean);
 
         if (Array.isArray(res.latestHistory))
             setLatestHistory(res.latestHistory.slice(0, 2) as HistoryItem[]);
@@ -103,6 +100,7 @@ export const useBiliConfig = () => {
      * 存档逻辑：将当前配置存入历史记录
      */
     const handleArchive = async () => {
+        console.log(1111);
         const activeTab = await getActiveTab();
         console.log(activeTab);
         // 2. 校验逻辑依然保持，但代码更整洁
@@ -148,11 +146,8 @@ export const useBiliConfig = () => {
      * 加载历史记录到当前页面
      */
     const loadHistory = async (item: HistoryItem) => {
-        if (item.opRanges) setOpRanges(item.opRanges);
-        if (item.frameConfig) setFrameConfig(item.frameConfig);
-        if (item.jumpConfig) setJumpConfig(item.jumpConfig);
-        if (item.mode) setMode(item.mode);
         await browser.tabs.update({ url: item.url });
+        window.close();
     };
 
     /**

@@ -12,6 +12,12 @@ export interface HistoryItem extends BiliVideoConfig {
     time: number;
 }
 
+export interface HistoryItemProps {
+    item: HistoryItem;
+    onClick: (item: HistoryItem) => void;
+    isPinned?: boolean;
+}
+
 export interface TimePoint {
     h: number; // 小时
     m: number; // 分钟

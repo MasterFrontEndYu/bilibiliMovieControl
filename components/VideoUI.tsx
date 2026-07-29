@@ -1,5 +1,4 @@
 export const VideoUI = (props: any) => {
-    console.log(props.opRanges());
     return (
         <div
             style={{

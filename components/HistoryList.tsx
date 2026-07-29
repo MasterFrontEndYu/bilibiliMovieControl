@@ -1,5 +1,5 @@
 import { Component, For } from 'solid-js';
-import type { HistoryItem } from '../assets/types';
+import type { HistoryItem } from '@/assets/types';
 import { HistoryItemComp } from './HistoryItem';
 
 interface HistoryListProps {

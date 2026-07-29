@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { getCollectionTitle } from "@/utils/bili";
-import { HistoryItem, TimePoint, TimeRange } from "../assets/types";
+import { HistoryItem, TimePoint, TimeRange } from "@/assets/types";
 
 import { MAX_HISTORY_LENGTH, cleanBiliUrl } from "@/utils/bili";
 
