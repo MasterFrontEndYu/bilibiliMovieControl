@@ -16,6 +16,13 @@ import { TimeRange, TimePoint } from "@/assets/types";
 
 import { VideoUI } from "@/components/VideoUI";
 
+
+// TODO 1. 存档保存，地址问题与local.host 不一致的问题，需要统一方法。
+// TODO 2. popup图标要更据状态显示不同图标。
+// TODO 3. 新增样式选择，给用户选择不同的UI样式，需要完成 - 设置时间如同老方法显示在页面上。
+
+
+
 // ==================== 类型定义 ====================
 interface Config {
   opRanges: TimeRange[];
