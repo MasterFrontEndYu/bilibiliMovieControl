@@ -5,7 +5,7 @@ import { browser } from 'wxt/browser';
 
 import { MAX_HISTORY_LENGTH } from "@/utils/bili";
 
-import type { HistoryItem } from '@/assets/types';
+import type { HistoryItem } from '@/types/types';
 
 export default function HistoryPage() {
     const [historyList, setHistoryList] = createSignal<HistoryItem[]>([]);

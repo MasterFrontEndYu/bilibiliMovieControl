@@ -6,7 +6,7 @@ import { browser } from "wxt/browser";
 import { MAX_HISTORY_LENGTH } from "@/utils/bili";
 
 // 定义和 Background/Popup 一致的接口
-import type { HistoryItem } from "@/assets/types";
+import type { HistoryItem } from "@/types/types";
 
 export default function HistoryPage() {
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryItem[]>([]);
