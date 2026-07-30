@@ -1,7 +1,7 @@
 import { createSignal, For } from "solid-js";
 import { TimeInput } from "@/components/TimeInput";
 import { Trash2, Clock, Save, TimerReset, CopyX } from "lucide-solid";
-import type { TimeRange, TimeRangeManagerProps } from "@/assets/types";
+import type { TimeRange, TimeRangeManagerProps } from "@/types/types";
 
 // TODO 保存到浏览器数据库，并通知页面更新（目前仅在内存中管理，刷新后会丢失）
 

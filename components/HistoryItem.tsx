@@ -1,5 +1,5 @@
 import { Component } from 'solid-js';
-import type {  HistoryItemProps } from '@/assets/types';
+import type {  HistoryItemProps } from '@/types/types';
 
 
 

@@ -1,11 +1,11 @@
 // entrypoints/options/main.tsx
-import { render } from 'solid-js/web';
-import { Router } from '@solidjs/router';
-import { routes } from './router';
-import Layout from './App';
+import { render } from "solid-js/web";
+import { Router } from "@solidjs/router";
+import { routes } from "./router";
+import Layout from "./App";
 
-import "@/assets/app.css";
-const root = document.getElementById('root');
+import "./app.css";
+const root = document.getElementById("root");
 
 if (root) {
     render(
@@ -15,6 +15,6 @@ if (root) {
                 {routes}
             </Router>
         ),
-        root
+        root,
     );
 }

@@ -1,6 +1,6 @@
 import { createSignal } from "solid-js";
 import { browser } from "wxt/browser";
-import { TimePoint, TimeRange, HistoryItem } from "@/assets/types";
+import { TimePoint, TimeRange, HistoryItem } from "@/types/types";
 
 import { getActiveTab, sendToActiveTab } from "@/utils/bili";
 
