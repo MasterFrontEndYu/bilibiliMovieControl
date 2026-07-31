@@ -12,8 +12,6 @@ import {
 import { isPageInPinnedHistory, createStorageListener } from "@/utils/bili";
 import { TimeRange, TimePoint, BiliVideoConfig } from "@/types/types";
 
-
-
 import { VideoUI } from "@/components/VideoUI";
 
 // TODO 1. 存档保存，地址问题与local.host 不一致的问题，需要统一方法。
@@ -23,7 +21,6 @@ import { VideoUI } from "@/components/VideoUI";
 // TODO 4. 历史记录这样保存。合集名+合集具体内容二维数组保存，popup 还是老样子保存最新的单级，标题用css但行限制每而不是截取标题。
 //         合集数据添加一个合集标识。
 
-
 export default defineContentScript({
     matches: ["*://*.bilibili.com/video/*"],
     cssInjectionMode: "manual",
@@ -31,15 +28,10 @@ export default defineContentScript({
     async main(ctx) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
 
-        const {
-            config,
-            setConfig,
-            updateConfig,
-            initFromStorage,
-        } = useStorageConfig();
+        const { config, setConfig, updateConfig, initFromStorage } =
+            useStorageConfig();
 
         const [isAnalyzing, setIsAnalyzing] = createSignal(false);
-
 
         // ---------- 2. 工具函数 ----------
         const toSeconds = (t: TimePoint) =>
@@ -61,15 +53,14 @@ export default defineContentScript({
         );
 
         // 注册监听 DOM url 变化
-        ctx.addEventListener(window, 'wxt:locationchange', ({ newUrl }) => {
-            console.log('URL changed to:', newUrl);
+        ctx.addEventListener(window, "wxt:locationchange", async ({ newUrl }) => {
+            console.log("URL changed to:", newUrl);
             // 在这里执行 URL 变化后的逻辑，例如重新挂载 UI
-            lastUrl = location.href;
+            cachedIsPinned = await isPageInPinnedHistory(location.href);
             lastJumpTime = 0;
             resetFrameAnalyzer();
             setIsAnalyzing(false);
         });
-        
 
         // 注册监听 storage 储存变化
         browser.storage.onChanged.addListener(storageListener);
@@ -186,14 +177,11 @@ export default defineContentScript({
         };
 
         // ---------- 7. 主循环 ----------
-        let lastUrl = location.href;
         let lastPageState = false;
         let cachedIsPinned = false;
         let cachedPinnedUrl = "";
 
-
-        ctx.setInterval(async (
-        ) => {
+        ctx.setInterval(async () => {
             try {
                 // 7.1 判断是否合集页
                 const isCol = !!(
@@ -202,18 +190,13 @@ export default defineContentScript({
                     document.querySelector(".cur-list")
                 );
 
-                // 7.2 检查是否在固定历史中（仅在 URL 变化时重新计算）
-                if (location.href !== cachedPinnedUrl) {
-                    cachedPinnedUrl = location.href;
-                    cachedIsPinned = await isPageInPinnedHistory(location.href);
-                }
-
                 // console.log("isCol", isCol);
                 // console.log("isAutoHandle", config.isAutoHandle);
                 // console.log("cachedIsPinned", cachedIsPinned);
 
                 // 7.3 计算是否运行逻辑（使用内存信号，不再读 storage）
-                const runControl = isCol && (config.isAutoHandle || cachedIsPinned);
+                const runControl =
+                    isCol && (config.isAutoHandle || cachedIsPinned);
 
                 // console.log("runControl:", runControl, "lastPageState:", lastPageState);
 
@@ -236,7 +219,7 @@ export default defineContentScript({
             } catch (e) {
                 console.error("[Main Loop] 异常:", e);
             }
-        }, 1000)
+        }, 1000);
 
         // ---------- 9. 初始化分析器 ----------
         initFrameAnalyzer();
