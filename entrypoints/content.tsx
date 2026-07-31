@@ -60,7 +60,18 @@ export default defineContentScript({
             },
         );
 
-        // 注册监听
+        // 注册监听 DOM url 变化
+        ctx.addEventListener(window, 'wxt:locationchange', ({ newUrl }) => {
+            console.log('URL changed to:', newUrl);
+            // 在这里执行 URL 变化后的逻辑，例如重新挂载 UI
+            lastUrl = location.href;
+            lastJumpTime = 0;
+            resetFrameAnalyzer();
+            setIsAnalyzing(false);
+        });
+        
+
+        // 注册监听 storage 储存变化
         browser.storage.onChanged.addListener(storageListener);
 
         // ---------- 4. UI 挂载 ----------
@@ -180,7 +191,9 @@ export default defineContentScript({
         let cachedIsPinned = false;
         let cachedPinnedUrl = "";
 
-        const mainTimer = setInterval(async () => {
+
+        ctx.setInterval(async (
+        ) => {
             try {
                 // 7.1 判断是否合集页
                 const isCol = !!(
@@ -202,7 +215,7 @@ export default defineContentScript({
                 // 7.3 计算是否运行逻辑（使用内存信号，不再读 storage）
                 const runControl = isCol && (config.isAutoHandle || cachedIsPinned);
 
-                console.log("runControl:", runControl, "lastPageState:", lastPageState);
+                // console.log("runControl:", runControl, "lastPageState:", lastPageState);
 
                 // 7.4 更新 ready 状态
                 if (runControl !== lastPageState) {
@@ -210,17 +223,8 @@ export default defineContentScript({
                     await browser.storage.local.set({
                         isPageReady: runControl,
                     });
-                    console.log("-----------------UI 加载--------------------");
+                    // console.log("-----------------UI 加载--------------------");
                     ui.mount();
-                }
-
-                // 7.5 处理 URL 变化
-                if (location.href !== lastUrl) {
-                    lastUrl = location.href;
-                    lastJumpTime = 0;
-                    resetFrameAnalyzer();
-                    setIsAnalyzing(false);
-                    // 延迟挂载 UI，等待新页面元素渲染
                 }
 
                 // 7.6 执行 UI 挂载或移除
@@ -232,15 +236,13 @@ export default defineContentScript({
             } catch (e) {
                 console.error("[Main Loop] 异常:", e);
             }
-        }, 1000);
-
+        }, 1000)
 
         // ---------- 9. 初始化分析器 ----------
         initFrameAnalyzer();
 
         // ---------- 10. 清理 ----------
         ctx.onInvalidated(() => {
-            clearInterval(mainTimer);
             browser.storage.onChanged.removeListener(storageListener);
             document.getElementById("bili-skip-wrapper-unique")?.remove();
             destroyFrameAnalyzer();

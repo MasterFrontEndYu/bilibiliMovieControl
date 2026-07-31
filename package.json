@@ -5,9 +5,9 @@
     "version": "1.3.2",
     "type": "module",
     "scripts": {
+        "dev:edge": "wxt -b edge",
         "dev": "wxt",
         "dev:firefox": "wxt -b firefox",
-        "dev:edge": "wxt -b edge",
         "build": "wxt build",
         "build:firefox": "wxt build -b firefox",
         "zip": "wxt zip",
