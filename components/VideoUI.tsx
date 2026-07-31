@@ -10,8 +10,7 @@ export const VideoUI = (props: any) => {
                 color: "white",
                 "border-radius": "8px",
                 "font-size": "12px",
-                "box-shadow":
-                    "0 2px 6px rgba(251,114,153,0.3)",
+                "box-shadow": "0 2px 6px rgba(251,114,153,0.3)",
                 "font-family": "sans-serif",
             }}
         >
@@ -20,13 +19,9 @@ export const VideoUI = (props: any) => {
             </span>
             <span style="display:inline-block;width: 2px;height: 16px;background: rgba(255,255,255,0.5);"></span>
             <span style="display:inline-block;">
-                {props.mode === "manual"
-                    ? `🏁 切集起点: ${props.formatTime(
-                        props.jumpConfig(),
-                    )}`
-                    : `🔍 分析起点: ${props.formatTime(
-                        props.frameConfig(),
-                    )}`}
+                {props.mode() === "manual"
+                    ? `🏁 切集起点: ${props.formatTime(props.jumpConfig())}`
+                    : `🔍 分析起点: ${props.formatTime(props.frameConfig())}`}
             </span>
             <span
                 style={{
@@ -40,5 +35,5 @@ export const VideoUI = (props: any) => {
                 {props.isAnalyzing() ? "●" : ""}
             </span>
         </div>
-    )
-}
+    );
+};

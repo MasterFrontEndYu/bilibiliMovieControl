@@ -4,7 +4,7 @@ import { Router } from "@solidjs/router";
 import { routes } from "./router";
 import Layout from "./App";
 
-import "@assets/css/app.css";
+import "@/assets/css/app.css";
 const root = document.getElementById("root");
 
 if (root) {

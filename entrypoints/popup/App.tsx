@@ -38,6 +38,10 @@ export default function App() {
     const [showTimeManager, setShowTimeManager] = createSignal(false);
 
     onMount(async () => {
+        const active = await getActiveTab();
+
+        console.log("is", active);
+
         await initFromStorage();
         await new Promise((resolve) => setTimeout(resolve, 5000));
     });
