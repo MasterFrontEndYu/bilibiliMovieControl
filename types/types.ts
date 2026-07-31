@@ -4,6 +4,7 @@ export interface BiliVideoConfig {
     jumpConfig: TimePoint; // 手动切集点
     mode: "frame" | "manual"; // 当前模式
     isAutoHandle: boolean;
+    isPageReady: boolean;
 }
 
 export interface HistoryItem extends BiliVideoConfig {
@@ -12,7 +13,6 @@ export interface HistoryItem extends BiliVideoConfig {
     url: string;
     time: number;
 }
-
 
 export interface HistoryItemProps {
     item: HistoryItem;

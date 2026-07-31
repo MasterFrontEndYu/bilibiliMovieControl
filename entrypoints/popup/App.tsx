@@ -1,6 +1,5 @@
 // entrypoints/popup/App.tsx
 import { onMount, Show, For, createSignal, Switch, Match } from "solid-js";
-import { useBiliConfig } from "@/hooks/useBiliConfig";
 import { TimeInput } from "@/components/TimeInput";
 import { HistoryList } from "@/components/HistoryList";
 import { TimeRangeManager } from "@/components/TimeRangeList";
@@ -8,37 +7,134 @@ import { browser } from "wxt/browser";
 import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
 import { getSoftName } from "@/utils/bili";
+import { HistoryItem, TimeRange } from "@/types/types";
 
 // TODO 全局配置修改为，可以添加多个网页地址，让插件生效。目前只针对B站。
 
 export default function App() {
     const {
         opRanges,
+        setOpRanges,
         frameConfig,
         setFrameConfig,
         jumpConfig,
         setJumpConfig,
         mode,
+        setMode,
         isPageReady,
-        setIsPageReady,
-        latestHistory,
-        setLatestHistory,
-        pinnedHistory,
 
         // 方法
         initFromStorage,
-        saveMode,
-        applyConfig,
-        handleArchive,
-        loadHistory,
-        openOptions,
-        handleUpdateOpRanges,
-    } = useBiliConfig();
+    } = useStorageConfig();
 
     const [showTimeManager, setShowTimeManager] = createSignal(false);
+    const [latestHistory, setLatestHistory] = createSignal<HistoryItem[]>([]);
+    const [pinnedHistory, setPinnedHistory] = createSignal<HistoryItem[]>([]);
+
+    /**
+     * 保存模式切换
+     */
+
+    const saveMode = async (newMode: "frame" | "manual") => {
+        setMode(newMode);
+        await browser.storage.local.set({ mode: newMode });
+    };
+
+    /**
+     * 应用配置：将当前所有状态写入 Storage 并广播给 Content Script
+     */
+    const applyConfig = async (type: "setting" | "reset") => {
+        if (type === "reset") {
+            const zero = { h: 0, m: 0, s: 0 };
+            if (mode() === "frame") {
+                setFrameConfig(zero);
+            } else {
+                setJumpConfig(zero);
+            }
+        }
+
+        // 1. 持久化
+        await browser.storage.local.set({
+            opRanges: opRanges(),
+            frameConfig: frameConfig(),
+            jumpConfig: jumpConfig(),
+            mode: mode(),
+        });
+    };
+
+    /**
+     * 存档逻辑：将当前配置存入历史记录
+     */
+    const handleArchive = async () => {
+        console.log(1111);
+        const activeTab = await getActiveTab();
+        console.log(activeTab);
+        // 2. 校验逻辑依然保持，但代码更整洁
+        if (!activeTab?.id) return;
+
+        // 3. 发送存档请求
+        const response = await browser.runtime.sendMessage({
+            type: "DO_ARCHIVE",
+            data: {
+                // 这里利用 getActiveTab 返回的对象
+                tab: {
+                    id: activeTab.id,
+                    title: activeTab.title,
+                    url: activeTab.url,
+                },
+                config: {
+                    mode: mode(),
+                    opRanges: opRanges(),
+                    frameConfig: frameConfig(),
+                    jumpConfig: jumpConfig(),
+                },
+            },
+        });
+
+        if (response?.pinnedHistory) {
+            setPinnedHistory(response.pinnedHistory);
+        }
+    };
+
+    /**
+     * TimeRangeManager 更新回调：更新 opRanges 并立即应用配置
+     */
+    const handleUpdateOpRanges = async (newRanges: TimeRange[]) => {
+        setOpRanges(newRanges);
+        await browser.storage.local.set({ opRanges: newRanges });
+        // await sendToActiveTab({
+        //     type: "UPDATE_CONFIG",
+        //     data: { opRanges: newRanges },
+        // });
+    };
+
+    /**
+     * 加载历史记录到当前页面
+     */
+    const loadHistory = async (item: HistoryItem) => {
+        await browser.tabs.update({ url: item.url });
+        window.close();
+    };
+
+    /**
+     * 打开配置页
+     */
+    const openOptions = () => {
+        browser.tabs.create({ url: browser.runtime.getURL("/options.html") });
+    };
 
     onMount(async () => {
         await initFromStorage();
+        const res = await browser.storage.local.get([
+            "latestHistory",
+            "pinnedHistory",
+        ]);
+
+        if (Array.isArray(res.latestHistory))
+            setLatestHistory(res.latestHistory.slice(0, 2) as HistoryItem[]);
+        if (Array.isArray(res.pinnedHistory))
+            setPinnedHistory(res.pinnedHistory.slice(0, 3) as HistoryItem[]);
+
         await new Promise((resolve) => setTimeout(resolve, 5000));
     });
 

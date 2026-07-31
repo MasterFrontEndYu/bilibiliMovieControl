@@ -86,14 +86,10 @@ export const isPageInPinnedHistory = async (url: string) => {
         return false;
     }
 
-    return (res.pinnedHistory as any[]).some(
-        (item: any) =>{
-            console.log("item.url:", item.url, "url:", cleanBiliUrl(url));
-            return item.url === cleanBiliUrl(url);
-        },
-    );
+    return (res.pinnedHistory as any[]).some((item: any) => {
+        return item.url === cleanBiliUrl(url);
+    });
 };
-
 
 /**
  * 创建一个 storage.onChanged 监听器，只处理指定的配置键

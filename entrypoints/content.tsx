@@ -10,7 +10,7 @@ import {
     destroyFrameAnalyzer,
 } from "../utils/frameAnalyzer";
 import { isPageInPinnedHistory, createStorageListener } from "@/utils/bili";
-import { TimeRange, TimePoint } from "@/types/types";
+import { TimeRange, TimePoint, BiliVideoConfig } from "@/types/types";
 
 import { VideoUI } from "@/components/VideoUI";
 
@@ -18,23 +18,17 @@ import { VideoUI } from "@/components/VideoUI";
 // TODO 2. popup图标要更据状态显示不同图标。
 // TODO 3. 新增样式选择，给用户选择不同的UI样式，需要完成 - 设置时间如同老方法显示在页面上。
 // TODO 4. 组件传参，用非值传递。
-
-// ==================== 类型定义 ====================
-interface Config {
-    opRanges: TimeRange[];
-    frameConfig: TimePoint;
-    jumpConfig: TimePoint;
-    mode: "frame" | "manual";
-    isAutoHandle: boolean;
-}
+// TODO 5. 历史记录这样保存。合集名+合集具体内容二维数组保存，popup 还是老样子保存最新的单级，标题用css但行限制每而不是截取标题。
+//         合集数据添加一个合集标识。
 
 // ==================== 默认配置 ====================
-const DEFAULT_CONFIG: Config = {
+const DEFAULT_CONFIG: BiliVideoConfig = {
     opRanges: [],
     frameConfig: { h: 0, m: 0, s: 0 },
     jumpConfig: { h: 0, m: 0, s: 0 },
     mode: "frame",
     isAutoHandle: true,
+    isPageReady: false,
 };
 
 // ==================== Content Script 主入口 ====================
@@ -45,21 +39,20 @@ export default defineContentScript({
     async main(ctx) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
         // ---------- 1. 响应式状态 ----------
-        const [opRanges, setOpRanges] = createSignal<TimeRange[]>([]);
-        const [frameConfig, setFrameConfig] = createSignal<TimePoint>({
-            h: 0,
-            m: 0,
-            s: 0,
-        });
-        const [jumpConfig, setJumpConfig] = createSignal<TimePoint>({
-            h: 0,
-            m: 0,
-            s: 0,
-        });
-        const [isPageReady, setIsPageReady] = createSignal(false);
-        const [mode, setMode] = createSignal<"frame" | "manual">("manual");
+
+        const {
+            opRanges,
+            frameConfig,
+            jumpConfig,
+            mode,
+            isAutoHandle,
+            isPageReady,
+            setIsPageReady,
+            updateConfig,
+            initFromStorage,
+        } = useStorageConfig();
+
         const [isAnalyzing, setIsAnalyzing] = createSignal(false);
-        const [isAutoHandle, setIsAutoHandle] = createSignal(true);
 
         // ---------- 2. 工具函数 ----------
         const toSeconds = (t: TimePoint) =>
@@ -69,31 +62,15 @@ export default defineContentScript({
         const formatTime = (t: TimePoint) => `${t.h}:${pad(t.m)}:${pad(t.s)}`;
 
         // ---------- 3. 配置管理（统一数据源） ----------
-        // 更新内存状态 + 持久化（仅当需要保存时）
-        const updateConfig = (data: Partial<Config>) => {
-            if (data.opRanges !== undefined) setOpRanges(data.opRanges);
-            if (data.frameConfig !== undefined)
-                setFrameConfig(data.frameConfig);
-            if (data.jumpConfig !== undefined) setJumpConfig(data.jumpConfig);
-            if (data.mode !== undefined) setMode(data.mode);
-            if (data.isAutoHandle !== undefined)
-                setIsAutoHandle(data.isAutoHandle);
-        };
-
         // 从 storage 加载初始配置
-        const stored = await browser.storage.local.get(
-            Object.keys(DEFAULT_CONFIG),
-        );
-        const initialConfig = { ...DEFAULT_CONFIG, ...stored };
-        updateConfig(initialConfig);
+        await initFromStorage();
 
         // 监听 storage 变化（来自其他扩展页面，如 Options）
         const storageListener = createStorageListener(
-            Object.keys(DEFAULT_CONFIG) as (keyof Config)[],
-            (data: Partial<Config>) => {
+            Object.keys(DEFAULT_CONFIG) as (keyof BiliVideoConfig)[],
+            (data: Partial<BiliVideoConfig>) => {
                 console.log("配置变更:", data); // 保留原有 console.log
                 updateConfig(data);
-                mountUI(); // 配置变化可能影响 UI 显示，刷新 UI
             },
         );
 
@@ -101,70 +78,47 @@ export default defineContentScript({
         browser.storage.onChanged.addListener(storageListener);
 
         // ---------- 4. UI 挂载 ----------
-        let disposeUI: (() => void) | null = null;
 
-        // 获取当前视频信息区域的锚点
-        const getAnchor = (): HTMLElement | null => {
-            return (document.getElementById("viewbox_report") ||
-                document.querySelector(".video-info-title") ||
-                document.querySelector(".cl-info-title")) as HTMLElement | null;
-        };
-
-        const mountUI = () => {
-            if (!isPageReady()) return;
-
-            const anchor = getAnchor();
-            if (!anchor) return;
-
-            // 若已存在挂载点但父节点不是当前锚点，则移除旧挂载点
-            let mountPoint = document.getElementById(
-                "bili-skip-wrapper-unique",
-            );
-            if (mountPoint && mountPoint.parentElement !== anchor) {
-                mountPoint.remove();
-                mountPoint = null;
-                // 清理旧的渲染
-                if (disposeUI) {
-                    disposeUI();
-                    disposeUI = null;
-                }
-            }
-
-            // 如果没有挂载点，创建新的
-            if (!mountPoint) {
-                mountPoint = document.createElement("span");
-                mountPoint.id = "bili-skip-wrapper-unique";
-                anchor.appendChild(mountPoint);
-
-                // 注入动画样式（只注入一次）
+        const ui = createIntegratedUi(ctx, {
+            position: "inline",
+            anchor: () => {
+                // 动态返回当前锚点
+                return (
+                    ((document.getElementById("viewbox_report") ||
+                        document.querySelector(".video-info-title") ||
+                        document.querySelector(
+                            ".cl-info-title",
+                        )) as HTMLElement) || document.body
+                );
+            },
+            onMount: (container) => {
+                // 注入样式（只一次）
                 if (!document.getElementById("bili-skip-style")) {
                     const style = document.createElement("style");
                     style.id = "bili-skip-style";
-                    style.textContent = `
-                        @keyframes blink {
-                            0%, 100% { opacity: 1; }
-                            50% { opacity: 0; }
-                        }
-                    `;
+                    style.textContent = `@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`;
                     document.head.appendChild(style);
                 }
 
-                // 渲染 Solid 组件
-                disposeUI = render(
+                // 渲染 Solid 组件，返回清理函数
+                return render(
                     () => (
                         <VideoUI
                             opRanges={opRanges}
                             formatTime={formatTime}
                             jumpConfig={jumpConfig}
                             frameConfig={frameConfig}
-                            mode={mode()}
+                            mode={mode}
                             isAnalyzing={isAnalyzing}
                         />
                     ),
-                    mountPoint,
+                    container,
                 );
-            }
-        };
+            },
+            onRemove: (unmount) => {
+                unmount?.(); // 清理 Solid 渲染
+            },
+        });
 
         // ---------- 5. 跳转逻辑 ----------
         let lastJumpTime = 0;
@@ -257,19 +211,13 @@ export default defineContentScript({
                 // 7.3 计算是否运行逻辑（使用内存信号，不再读 storage）
                 const runControl = isCol && (isAutoHandle() || cachedIsPinned);
 
-                console.log(
-                    "runControl:",
-                    runControl,
-                    "isPageReady:",
-                    isPageReady(),
-                );
-
                 // 7.4 更新 ready 状态
                 if (runControl !== isPageReady()) {
                     setIsPageReady(runControl);
                     await browser.storage.local.set({
                         isPageReady: runControl,
                     });
+                    ui.mount();
                 }
 
                 // 7.5 处理 URL 变化
@@ -279,22 +227,13 @@ export default defineContentScript({
                     resetFrameAnalyzer();
                     setIsAnalyzing(false);
                     // 延迟挂载 UI，等待新页面元素渲染
-                    setTimeout(mountUI, 500);
                 }
 
                 // 7.6 执行 UI 挂载或移除
                 if (runControl) {
-                    mountUI();
                     runControlLogic();
                 } else {
-                    const ui = document.getElementById(
-                        "bili-skip-wrapper-unique",
-                    );
                     if (ui) ui.remove();
-                    if (disposeUI) {
-                        disposeUI();
-                        disposeUI = null;
-                    }
                 }
             } catch (e) {
                 console.error("[Main Loop] 异常:", e);
@@ -325,10 +264,6 @@ export default defineContentScript({
             clearInterval(mainTimer);
             browser.runtime.onMessage.removeListener(handleMessage);
             browser.storage.onChanged.removeListener(storageListener);
-            if (disposeUI) {
-                disposeUI();
-                disposeUI = null;
-            }
             document.getElementById("bili-skip-wrapper-unique")?.remove();
             destroyFrameAnalyzer();
         });
