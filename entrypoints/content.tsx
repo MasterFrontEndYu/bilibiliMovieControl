@@ -12,47 +12,34 @@ import {
 import { isPageInPinnedHistory, createStorageListener } from "@/utils/bili";
 import { TimeRange, TimePoint, BiliVideoConfig } from "@/types/types";
 
+
+
 import { VideoUI } from "@/components/VideoUI";
 
 // TODO 1. 存档保存，地址问题与local.host 不一致的问题，需要统一方法。
 // TODO 2. popup图标要更据状态显示不同图标。
 // TODO 3. 新增样式选择，给用户选择不同的UI样式，需要完成 - 设置时间如同老方法显示在页面上。
-// TODO 4. 组件传参，用非值传递。
-// TODO 5. 历史记录这样保存。合集名+合集具体内容二维数组保存，popup 还是老样子保存最新的单级，标题用css但行限制每而不是截取标题。
+
+// TODO 4. 历史记录这样保存。合集名+合集具体内容二维数组保存，popup 还是老样子保存最新的单级，标题用css但行限制每而不是截取标题。
 //         合集数据添加一个合集标识。
 
-// ==================== 默认配置 ====================
-const DEFAULT_CONFIG: BiliVideoConfig = {
-    opRanges: [],
-    frameConfig: { h: 0, m: 0, s: 0 },
-    jumpConfig: { h: 0, m: 0, s: 0 },
-    mode: "frame",
-    isAutoHandle: true,
-    isPageReady: false,
-};
 
-// ==================== Content Script 主入口 ====================
 export default defineContentScript({
     matches: ["*://*.bilibili.com/video/*"],
     cssInjectionMode: "manual",
 
     async main(ctx) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
-        // ---------- 1. 响应式状态 ----------
 
         const {
-            opRanges,
-            frameConfig,
-            jumpConfig,
-            mode,
-            isAutoHandle,
-            isPageReady,
-            setIsPageReady,
+            config,
+            setConfig,
             updateConfig,
             initFromStorage,
         } = useStorageConfig();
 
         const [isAnalyzing, setIsAnalyzing] = createSignal(false);
+
 
         // ---------- 2. 工具函数 ----------
         const toSeconds = (t: TimePoint) =>
@@ -67,10 +54,9 @@ export default defineContentScript({
 
         // 监听 storage 变化（来自其他扩展页面，如 Options）
         const storageListener = createStorageListener(
-            Object.keys(DEFAULT_CONFIG) as (keyof BiliVideoConfig)[],
+            STORAGE_KEYS,
             (data: Partial<BiliVideoConfig>) => {
-                console.log("配置变更:", data); // 保留原有 console.log
-                updateConfig(data);
+                setConfig(data);
             },
         );
 
@@ -104,11 +90,11 @@ export default defineContentScript({
                 return render(
                     () => (
                         <VideoUI
-                            opRanges={opRanges}
+                            opRanges={config.opRanges}
                             formatTime={formatTime}
-                            jumpConfig={jumpConfig}
-                            frameConfig={frameConfig}
-                            mode={mode}
+                            jumpConfig={config.jumpConfig}
+                            frameConfig={config.frameConfig}
+                            mode={config.mode}
                             isAnalyzing={isAnalyzing}
                         />
                     ),
@@ -147,7 +133,7 @@ export default defineContentScript({
             const cur = video.currentTime;
 
             // 6.1 处理 OP 跳过
-            for (const range of opRanges()) {
+            for (const range of config.opRanges) {
                 const start = toSeconds(range.start);
                 const end = toSeconds(range.end);
                 if (end > start && cur >= start && cur < end) {
@@ -157,15 +143,15 @@ export default defineContentScript({
             }
 
             // 6.2 切集逻辑
-            if (mode() === "manual") {
-                const jumpTime = toSeconds(jumpConfig());
+            if (config.mode === "manual") {
+                const jumpTime = toSeconds(config.jumpConfig);
                 setIsAnalyzing(false);
                 if (jumpTime > 0 && cur >= jumpTime) {
                     executeJump();
                 }
             } else {
                 // frame 模式
-                const analyzeStartTime = toSeconds(frameConfig());
+                const analyzeStartTime = toSeconds(config.frameConfig);
                 if (analyzeStartTime > 0 && cur >= analyzeStartTime) {
                     if (!isAnalyzing()) setIsAnalyzing(true);
 
@@ -190,6 +176,7 @@ export default defineContentScript({
 
         // ---------- 7. 主循环 ----------
         let lastUrl = location.href;
+        let lastPageState = false;
         let cachedIsPinned = false;
         let cachedPinnedUrl = "";
 
@@ -208,15 +195,22 @@ export default defineContentScript({
                     cachedIsPinned = await isPageInPinnedHistory(location.href);
                 }
 
+                // console.log("isCol", isCol);
+                // console.log("isAutoHandle", config.isAutoHandle);
+                // console.log("cachedIsPinned", cachedIsPinned);
+
                 // 7.3 计算是否运行逻辑（使用内存信号，不再读 storage）
-                const runControl = isCol && (isAutoHandle() || cachedIsPinned);
+                const runControl = isCol && (config.isAutoHandle || cachedIsPinned);
+
+                console.log("runControl:", runControl, "lastPageState:", lastPageState);
 
                 // 7.4 更新 ready 状态
-                if (runControl !== isPageReady()) {
-                    setIsPageReady(runControl);
+                if (runControl !== lastPageState) {
+                    lastPageState = runControl;
                     await browser.storage.local.set({
                         isPageReady: runControl,
                     });
+                    console.log("-----------------UI 加载--------------------");
                     ui.mount();
                 }
 
@@ -240,21 +234,6 @@ export default defineContentScript({
             }
         }, 1000);
 
-        // ---------- 8. 消息监听 ----------
-        const handleMessage = (msg: any, sender: any, sendResponse: any) => {
-            try {
-                if (msg.type === "QUERY_READY_STATUS") {
-                    sendResponse({ isPageReady: isPageReady() });
-                    return true;
-                }
-            } catch (e) {
-                console.warn("[Message] 处理错误:", e);
-                sendResponse({ error: String(e) });
-                return true;
-            }
-            return false; // 未处理的消息
-        };
-        browser.runtime.onMessage.addListener(handleMessage);
 
         // ---------- 9. 初始化分析器 ----------
         initFrameAnalyzer();
@@ -262,7 +241,6 @@ export default defineContentScript({
         // ---------- 10. 清理 ----------
         ctx.onInvalidated(() => {
             clearInterval(mainTimer);
-            browser.runtime.onMessage.removeListener(handleMessage);
             browser.storage.onChanged.removeListener(storageListener);
             document.getElementById("bili-skip-wrapper-unique")?.remove();
             destroyFrameAnalyzer();

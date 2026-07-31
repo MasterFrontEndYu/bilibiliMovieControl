@@ -1,4 +1,5 @@
 export const VideoUI = (props: any) => {
+    console.log('props', props.opRanges);
     return (
         <div
             style={{
@@ -15,13 +16,13 @@ export const VideoUI = (props: any) => {
             }}
         >
             <span style="display:inline-block;" title="跳过段数">
-                ⏭ {props.opRanges().length} 段
+                ⏭ {props.opRanges.length} 段
             </span>
             <span style="display:inline-block;width: 2px;height: 16px;background: rgba(255,255,255,0.5);"></span>
             <span style="display:inline-block;">
-                {props.mode() === "manual"
-                    ? `🏁 切集起点: ${props.formatTime(props.jumpConfig())}`
-                    : `🔍 分析起点: ${props.formatTime(props.frameConfig())}`}
+                {props.mode === "manual"
+                    ? `🏁 切集起点: ${props.formatTime(props.jumpConfig)}`
+                    : `🔍 分析起点: ${props.formatTime(props.frameConfig)}`}
             </span>
             <span
                 style={{

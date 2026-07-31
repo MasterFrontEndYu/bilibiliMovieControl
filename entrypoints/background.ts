@@ -31,7 +31,6 @@ export default defineBackground(() => {
             const res = await browser.storage.local.get("pinnedHistory");
             const history = (res.pinnedHistory as HistoryItem[]) || [];
 
-            // --- 2. 唯一性去重 ---
             const filteredHistory = history.filter(
                 (item: HistoryItem) => cleanBiliUrl(item.url) !== cleanedUrl,
             );

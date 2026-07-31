@@ -1,13 +1,16 @@
-export interface BiliVideoConfig {
+interface Config {
     opRanges: TimeRange[]; // 跳过列表
     frameConfig: TimePoint; // 帧分析点
     jumpConfig: TimePoint; // 手动切集点
     mode: "frame" | "manual"; // 当前模式
+}
+
+export interface BiliVideoConfig extends Config {
     isAutoHandle: boolean;
     isPageReady: boolean;
 }
 
-export interface HistoryItem extends BiliVideoConfig {
+export interface HistoryItem extends Config {
     id: number;
     title: string;
     url: string;

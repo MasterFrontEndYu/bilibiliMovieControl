@@ -8,22 +8,14 @@ import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
 import { getSoftName } from "@/utils/bili";
 import { HistoryItem, TimeRange } from "@/types/types";
+import { useStorageConfig } from "@/hooks/useStorageConfig";
 
 // TODO 全局配置修改为，可以添加多个网页地址，让插件生效。目前只针对B站。
 
 export default function App() {
     const {
-        opRanges,
-        setOpRanges,
-        frameConfig,
-        setFrameConfig,
-        jumpConfig,
-        setJumpConfig,
-        mode,
-        setMode,
-        isPageReady,
-
-        // 方法
+        config,
+        updateConfig,
         initFromStorage,
     } = useStorageConfig();
 
@@ -36,8 +28,7 @@ export default function App() {
      */
 
     const saveMode = async (newMode: "frame" | "manual") => {
-        setMode(newMode);
-        await browser.storage.local.set({ mode: newMode });
+        updateConfig({ mode: newMode });
     };
 
     /**
@@ -46,20 +37,12 @@ export default function App() {
     const applyConfig = async (type: "setting" | "reset") => {
         if (type === "reset") {
             const zero = { h: 0, m: 0, s: 0 };
-            if (mode() === "frame") {
-                setFrameConfig(zero);
+            if (config.mode === "frame") {
+                updateConfig({ frameConfig : zero});
             } else {
-                setJumpConfig(zero);
+                updateConfig({ jumpConfig: zero });
             }
         }
-
-        // 1. 持久化
-        await browser.storage.local.set({
-            opRanges: opRanges(),
-            frameConfig: frameConfig(),
-            jumpConfig: jumpConfig(),
-            mode: mode(),
-        });
     };
 
     /**
@@ -83,10 +66,10 @@ export default function App() {
                     url: activeTab.url,
                 },
                 config: {
-                    mode: mode(),
-                    opRanges: opRanges(),
-                    frameConfig: frameConfig(),
-                    jumpConfig: jumpConfig(),
+                    mode: config.mode,
+                    opRanges: config.opRanges,
+                    frameConfig: config.frameConfig,
+                    jumpConfig: config.jumpConfig,
                 },
             },
         });
@@ -100,8 +83,8 @@ export default function App() {
      * TimeRangeManager 更新回调：更新 opRanges 并立即应用配置
      */
     const handleUpdateOpRanges = async (newRanges: TimeRange[]) => {
-        setOpRanges(newRanges);
-        await browser.storage.local.set({ opRanges: newRanges });
+
+        updateConfig({ opRanges: newRanges });
         // await sendToActiveTab({
         //     type: "UPDATE_CONFIG",
         //     data: { opRanges: newRanges },
@@ -149,10 +132,10 @@ export default function App() {
                         </h1>
                         <span
                             class={`badge badge-xs mr-8 ${
-                                isPageReady() ? "badge-success" : "badge-ghost"
+                                config.isPageReady ? "badge-success" : "badge-ghost"
                             }`}
                         >
-                            {isPageReady() ? "已就绪" : "未启动"}
+                            {config.isPageReady ? "已就绪" : "未启动"}
                         </span>
                     </div>
 
@@ -182,14 +165,14 @@ export default function App() {
                         {(m) => (
                             <label
                                 class={`flex items-center gap-1 cursor-pointer ${
-                                    mode() === m ? "text-secondary" : ""
+                                    config.mode === m ? "text-secondary" : ""
                                 }`}
                             >
                                 <input
                                     type="radio"
                                     name="mode"
                                     class="radio radio-xs radio-secondary"
-                                    checked={mode() === m}
+                                    checked={config.mode === m}
                                     onChange={() => saveMode(m)}
                                 />
                                 {m === "frame" ? "帧分析" : "手动切集"}
@@ -199,38 +182,69 @@ export default function App() {
                 </div>
                 <div class="flex flex-col gap-2.5">
                     <Switch>
-                        <Match when={mode() === "frame"}>
+                        <Match when={config.mode === "frame"}>
                             <TimeInput
                                 label="帧"
-                                hour={frameConfig().h}
-                                minute={frameConfig().m}
-                                second={frameConfig().s}
+                                hour={config.frameConfig.h}
+                                minute={config.frameConfig.m}
+                                second={config.frameConfig.s}
                                 // 必须通过展开运算符更新特定字段
                                 onHourChange={(val) =>
-                                    setFrameConfig({ ...frameConfig(), h: val })
+                                    updateConfig({
+                                        frameConfig: {
+                                            ...config.frameConfig,  // 保留旧的 m 和 s
+                                            h: val                  // 覆盖 h
+                                        }
+                                    })
+                                    
                                 }
                                 onMinuteChange={(val) =>
-                                    setFrameConfig({ ...frameConfig(), m: val })
+                                    updateConfig({
+                                        frameConfig: {
+                                            ...config.frameConfig,  // 保留旧的 m 和 s
+                                            m: val                  // 覆盖 h
+                                        }
+                                    })
                                 }
                                 onSecondChange={(val) =>
-                                    setFrameConfig({ ...frameConfig(), s: val })
+                                    updateConfig({
+                                        frameConfig: {
+                                            ...config.frameConfig,  // 保留旧的 m 和 s
+                                            s: val                  // 覆盖 h
+                                        }
+                                    })
                                 }
                             />
                         </Match>
-                        <Match when={mode() === "manual"}>
+                        <Match when={config.mode === "manual"}>
                             <TimeInput
                                 label="切"
-                                hour={jumpConfig().h}
-                                minute={jumpConfig().m}
-                                second={jumpConfig().s}
+                                hour={config.jumpConfig.h}
+                                minute={config.jumpConfig.m}
+                                second={config.jumpConfig.s}
                                 onHourChange={(val) =>
-                                    setJumpConfig({ ...jumpConfig(), h: val })
+                                    updateConfig({
+                                        jumpConfig: {
+                                            ...config.jumpConfig,  // 保留旧的 m 和 s
+                                            h: val                  // 覆盖 h
+                                        }
+                                    })
                                 }
                                 onMinuteChange={(val) =>
-                                    setJumpConfig({ ...jumpConfig(), m: val })
+                                updateConfig({
+                                    jumpConfig: {
+                                        ...config.jumpConfig,  // 保留旧的 m 和 s
+                                        m: val                  // 覆盖 h
+                                    }
+                                })
                                 }
                                 onSecondChange={(val) =>
-                                    setJumpConfig({ ...jumpConfig(), s: val })
+                                updateConfig({
+                                    jumpConfig: {
+                                        ...config.jumpConfig,  // 保留旧的 m 和 s
+                                        s: val                  // 覆盖 h
+                                    }
+                                })
                                 }
                             />
                         </Match>
@@ -266,7 +280,7 @@ export default function App() {
             </Show>
             <Show when={showTimeManager()}>
                 <TimeRangeManager
-                    ranges={opRanges()}
+                    ranges={config.opRanges}
                     onUpdate={handleUpdateOpRanges}
                     onClose={() => setShowTimeManager(false)}
                 />
