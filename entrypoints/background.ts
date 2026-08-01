@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { getCollectionTitle } from "@/utils/bili";
-import { HistoryItem, TimePoint, TimeRange } from "@/types/types";
+import { HistoryConfig, TimePoint, TimeRange } from "@/types/types";
 
 import { MAX_HISTORY_LENGTH, cleanBiliUrl } from "@/utils/bili";
 
@@ -19,7 +19,7 @@ export default defineBackground(() => {
         const cleanedUrl = cleanBiliUrl(activeTab.url || "");
         const colTitle = await getCollectionTitle(activeTab.id);
         if (colTitle) {
-            const currentData: HistoryItem = {
+            const currentData: HistoryConfig = {
                 id: activeTab?.id || Date.now(),
                 title: colTitle,
                 url: cleanedUrl, // 使用清洗后的 URL
@@ -31,10 +31,10 @@ export default defineBackground(() => {
             };
 
             const res = await browser.storage.local.get("pinnedHistory");
-            const history = (res.pinnedHistory as HistoryItem[]) || [];
+            const history = (res.pinnedHistory as HistoryConfig[]) || [];
 
             const filteredHistory = history.filter(
-                (item: HistoryItem) => cleanBiliUrl(item.url) !== cleanedUrl,
+                (item: HistoryConfig) => cleanBiliUrl(item.url) !== cleanedUrl,
             );
 
             const newHistory = [currentData, ...filteredHistory].slice(
@@ -82,7 +82,7 @@ export default defineBackground(() => {
                     mode: "frame",
                 });
 
-                const newItem: HistoryItem = {
+                const newItem: HistoryConfig = {
                     id: tabId,
                     title: colTitle,
                     url: cleanedUrl,

@@ -6,15 +6,15 @@ import { browser } from "wxt/browser";
 import { MAX_HISTORY_LENGTH } from "@/utils/bili";
 
 // 定义和 Background/Popup 一致的接口
-import type { HistoryItem } from "@/types/types";
+import type { HistoryConfig } from "@/types/types";
 
 export default function HistoryPage() {
-    const [pinnedHistory, setPinnedHistory] = createSignal<HistoryItem[]>([]);
+    const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
 
     // 初始化加载
     onMount(async () => {
         const res = await browser.storage.local.get({ pinnedHistory: [] });
-        setPinnedHistory(res.pinnedHistory as HistoryItem[]);
+        setPinnedHistory(res.pinnedHistory as HistoryConfig[]);
     });
 
     // 删除单条

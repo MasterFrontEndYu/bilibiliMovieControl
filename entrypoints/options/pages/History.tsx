@@ -5,15 +5,15 @@ import { browser } from 'wxt/browser';
 
 import { MAX_HISTORY_LENGTH } from "@/utils/bili";
 
-import type { HistoryItem } from '@/types/types';
+import type { HistoryConfig } from '@/types/types';
 
 export default function HistoryPage() {
-    const [historyList, setHistoryList] = createSignal<HistoryItem[]>([]);
+    const [historyList, setHistoryList] = createSignal<HistoryConfig[]>([]);
 
     // 初始化加载
     onMount(async () => {
         const res = await browser.storage.local.get({ latestHistory: [] });
-        setHistoryList(res.latestHistory as HistoryItem[]);
+        setHistoryList(res.latestHistory as HistoryConfig[]);
     });
 
     // 删除单条

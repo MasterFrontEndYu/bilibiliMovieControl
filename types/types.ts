@@ -10,7 +10,7 @@ export interface BiliVideoConfig extends Config {
     isPageReady: boolean;
 }
 
-export interface HistoryItem extends Config {
+export interface HistoryConfig extends Config {
     id: number;
     title: string;
     url: string;
@@ -19,13 +19,13 @@ export interface HistoryItem extends Config {
 
 export interface HistoryList {
     collectionId: string;
-    items: HistoryItem[];
+    items: HistoryConfig[];
 }
 
 
 export interface HistoryItemProps {
-    item: HistoryItem;
-    onClick: (item: HistoryItem) => void;
+    item: HistoryConfig;
+    onClick: (item: HistoryConfig) => void;
     isPinned?: boolean;
 }
 

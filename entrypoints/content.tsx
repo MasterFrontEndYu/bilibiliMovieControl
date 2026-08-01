@@ -16,6 +16,7 @@ import { VideoUI } from "@/components/VideoUI";
 import { formatTime, toSeconds } from "@/utils/commonUse";
 
 // TODO 1. 存档保存，地址问题与local.host 不一致的问题，需要统一方法。
+
 // TODO 2. popup图标要更据状态显示不同图标。
 
 // TODO 3. 新增样式选择，给用户选择不同的UI样式，需要完成 - 设置时间如同老方法显示在页面上。
@@ -30,7 +31,7 @@ export default defineContentScript({
     async main(ctx) {
         await new Promise((resolve) => setTimeout(resolve, 5000));
 
-        const { config, setConfig, updateConfig, initFromStorage } =
+        const { config, setConfig, initFromStorage } =
             useStorageConfig();
 
         const [isAnalyzing, setIsAnalyzing] = createSignal(false);
@@ -187,7 +188,6 @@ export default defineContentScript({
 
                 const runControl =
                     isCol && config.isAutoHandle;
-
 
                 // 7.4 更新 ready 状态
                 if (runControl !== lastPageState) {

@@ -7,7 +7,7 @@ import { browser } from "wxt/browser";
 import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
 import { getSoftName } from "@/utils/bili";
-import { HistoryItem, TimeRange } from "@/types/types";
+import { HistoryConfig, TimeRange } from "@/types/types";
 import { useStorageConfig } from "@/hooks/useStorageConfig";
 
 // TODO 全局配置修改为，可以添加多个网页地址，让插件生效。目前只针对B站。
@@ -20,8 +20,8 @@ export default function App() {
     } = useStorageConfig();
 
     const [showTimeManager, setShowTimeManager] = createSignal(false);
-    const [latestHistory, setLatestHistory] = createSignal<HistoryItem[]>([]);
-    const [pinnedHistory, setPinnedHistory] = createSignal<HistoryItem[]>([]);
+    const [latestHistory, setLatestHistory] = createSignal<HistoryConfig[]>([]);
+    const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
 
     /**
      * 保存模式切换
@@ -79,7 +79,7 @@ export default function App() {
     /**
      * 加载历史记录到当前页面
      */
-    const loadHistory = async (item: HistoryItem) => {
+    const loadHistory = async (item: HistoryConfig) => {
         await browser.tabs.update({ url: item.url });
         window.close();
     };
@@ -100,11 +100,9 @@ export default function App() {
         ]);
 
         if (Array.isArray(res.latestHistory))
-            setLatestHistory(res.latestHistory.slice(0, 2) as HistoryItem[]);
+            setLatestHistory(res.latestHistory.slice(0, 2) as HistoryConfig[]);
         if (Array.isArray(res.pinnedHistory))
-            setPinnedHistory(res.pinnedHistory.slice(0, 3) as HistoryItem[]);
-
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+            setPinnedHistory(res.pinnedHistory.slice(0, 3) as HistoryConfig[]);
     });
 
     return (
@@ -237,27 +235,29 @@ export default function App() {
                     </Switch>
                 </div>
 
-                <div class="flex justify-between gap-2">
-                    <button
-                        class="btn btn-soft btn-primary btn-sm"
-                        onClick={handleArchive}
-                    >
-                        <Save size={14} /> 存档
-                    </button>
-                    <button
-                        class="btn btn-soft btn-warning btn-sm"
-                        onClick={applyConfig}
-                    >
-                        <RotateCcw size={14} /> 重置
-                    </button>
-                </div>
-
+                <button
+                    class="btn btn-soft btn-warning btn-sm w-full"
+                    onClick={applyConfig}
+                >
+                    <RotateCcw size={14} /> 重置
+                </button>
+                    
                 <HistoryList
-                    latest={latestHistory()}
-                    pinned={pinnedHistory()}
+                    history={latestHistory()}
                     onLoadHistory={loadHistory}
                 />
+                <HistoryList
+                    history={pinnedHistory()}
+                    onLoadHistory={loadHistory}
+                />
+                <button
+                    class="btn btn-soft btn-primary btn-sm w-full"
+                    onClick={handleArchive}
+                >
+                    <Save size={14} /> 手动存档
+                </button>
             </Show>
+            
             <Show when={showTimeManager()}>
                 <TimeRangeManager
                     ranges={config.opRanges}
