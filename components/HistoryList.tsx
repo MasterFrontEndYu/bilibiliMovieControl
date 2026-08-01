@@ -6,7 +6,6 @@ export const HistoryList: Component<HistoryListConfig> = (props) => {
         await browser.tabs.update({ url: item.url });
         window.close();
     };
-    console.log('pro', props.items);
     const prefix = () => (props.isPinned ? '📌 ' : '🕒 ');
     return (
         <div class="border-base-300">

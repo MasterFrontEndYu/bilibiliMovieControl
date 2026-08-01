@@ -3,7 +3,6 @@ import { TimeInput } from "@/components/TimeInput";
 import { Trash2, Clock, Save, TimerReset, CopyX } from "lucide-solid";
 import type { TimeRange, TimeRangeManagerProps } from "@/types/types";
 
-// TODO 保存到浏览器数据库，并通知页面更新（目前仅在内存中管理，刷新后会丢失）
 
 export const TimeRangeManager = (props: TimeRangeManagerProps) => {
     // 当前正在编辑的时间状态（仅用于新增时段，不直接修改外部列表）
@@ -12,9 +11,6 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
     const [currentStart, setCurrentStart] = createSignal(defaultTime());
     const [currentEnd, setCurrentEnd] = createSignal(defaultTime());
 
-    // 辅助函数：格式化显示
-    const formatTime = (t: { h: number; m: number; s: number }) =>
-        [t.h, t.m, t.s].map((v) => String(v).padStart(2, "0")).join(":");
 
     // 添加到列表（调用 onUpdate）
     const handleConfirm = () => {
