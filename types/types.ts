@@ -17,16 +17,10 @@ export interface HistoryConfig extends Config {
     time: number;
 }
 
-export interface HistoryList {
-    collectionId: string;
-    items: HistoryConfig[];
-}
-
-
-export interface HistoryItemProps {
-    item: HistoryConfig;
-    onClick: (item: HistoryConfig) => void;
+export interface HistoryListConfig {
+    maxLength: number; 
     isPinned?: boolean;
+    items: HistoryConfig[];
 }
 
 export interface TimePoint {

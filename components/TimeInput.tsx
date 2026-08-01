@@ -19,7 +19,7 @@ export const TimeInput: Component<TimeInputProps> = (props) => {
                     type="number"
                     value={props.hour}
                     onInput={e => props.onHourChange(+e.currentTarget.value)}
-                    class="input validator input-bordered input-sm w-16 text-center px-2"
+                    class="input validator input-bordered input-xs w-16 text-center px-2"
                     min="0"
                     max="999999"
                 />
@@ -29,7 +29,7 @@ export const TimeInput: Component<TimeInputProps> = (props) => {
                     required
                     value={props.minute}
                     onInput={e => props.onMinuteChange(Math.min(+e.currentTarget.value, 59))}
-                    class="input validator input-bordered input-sm w-14 text-center px-2"
+                    class="input validator input-bordered input-xs w-14 text-center px-2"
                     min="0"
                     max="59"
                 />
@@ -39,7 +39,7 @@ export const TimeInput: Component<TimeInputProps> = (props) => {
                     required
                     value={props.second}
                     onInput={e => props.onSecondChange(Math.min(+e.currentTarget.value, 59))}
-                    class="input validator input-bordered input-sm w-14 text-center px-2"
+                    class="input validator input-bordered input-xs w-14 text-center px-2"
                     min="0"
                     max="59"
                 />

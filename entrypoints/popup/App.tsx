@@ -134,7 +134,7 @@ export default function App() {
 
                 <div class="divider m-0">设置多OP跳转</div>
                 <button
-                    class="btn btn-dash btn-warning btn-block"
+                    class="btn btn-dash btn-warning btn-sm btn-block"
                     onClick={[setShowTimeManager, true]}
                 >
                     {" "}
@@ -236,26 +236,29 @@ export default function App() {
                 </div>
 
                 <button
-                    class="btn btn-soft btn-warning btn-sm w-full"
+                    class="btn btn-warning btn-sm w-full"
                     onClick={applyConfig}
                 >
                     <RotateCcw size={14} /> 重置
                 </button>
                     
                 <HistoryList
-                    history={latestHistory()}
-                    onLoadHistory={loadHistory}
-                />
-                <HistoryList
-                    history={pinnedHistory()}
-                    onLoadHistory={loadHistory}
+                    items={latestHistory()}
+                    maxLength={2}
+                    isPinned={false}
                 />
                 <button
-                    class="btn btn-soft btn-primary btn-sm w-full"
+                    class="btn btn-primary btn-sm w-full"
                     onClick={handleArchive}
                 >
                     <Save size={14} /> 手动存档
                 </button>
+                <HistoryList
+                    items={pinnedHistory()}
+                    maxLength={3}
+                    isPinned={true}
+                />
+                
             </Show>
             
             <Show when={showTimeManager()}>

@@ -1,21 +1,36 @@
 import { Component, For } from 'solid-js';
-import type { HistoryConfig } from '@/types/types';
-import { HistoryItemComp } from './HistoryItem';
+import { HistoryConfig, HistoryListConfig } from '@/types/types';
 
-interface HistoryListProps {
-    history: HistoryConfig[];
-    onLoadHistory: (item: HistoryConfig) => void;
-}
-
-export const HistoryList: Component<HistoryListProps> = (props) => {
+export const HistoryList: Component<HistoryListConfig> = (props) => {
+    const loadHistory = async (item: HistoryConfig) => {
+        await browser.tabs.update({ url: item.url });
+        window.close();
+    };
+    console.log('pro', props.items);
+    const prefix = () => (props.isPinned ? '📌 ' : '🕒 ');
     return (
-        <div class="mt-1 border-t border-base-300 pt-2.5">
-            <div class="text-[11px] text-base-content/60 mb-1 block">最近播放 (合集)</div>
-            <div class="h-20 border border-base-300 rounded-md p-1 overflow-y-auto">
-                <For each={props.history} fallback={<div class="text-base-content/60 text-xs my-1 text-center">暂无记录</div>}>
-                    {item => <HistoryItemComp item={item} onClick={props.onLoadHistory} isPinned={false} />}
+        <div class="border-base-300">
+            <div class="text-[12px] text-base-content/60 block mb-1">
+                {props.isPinned ? '手动存档' : '最近播放'}
+            </div>
+            <div
+                class="border border-base-300 rounded-md flex flex-col p-1 divide-y divide-base-300 overflow-hidden"
+                style={{ height: `${props.maxLength * 32}px` }}
+            >
+                <For each={props.items} fallback={<div class="text-base-content/60 text-xs my-1 text-center">暂无记录</div>}>
+                    {item => (
+                        <div
+                            class={`px-2 flex-1 flex items-center text-[11px] cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap transition-all duration-200 hover:shadow-sm ${props.isPinned
+                                    ? 'bg-primary/10 text-secondary-content/70 hover:bg-primary/20 hover:text-primary'
+                                : 'bg-secondary/10 text-secondary-content/70 hover:bg-secondary/20 hover:text-primary'
+                                }`}
+                            onClick={() => loadHistory(item)}
+                        >
+                            {prefix()}{item.title}
+                        </div>
+                    )}
                 </For>
-            </div> 
+            </div>
         </div>
     );
 };
