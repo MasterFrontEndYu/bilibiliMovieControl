@@ -14,6 +14,8 @@ export default defineBackground(() => {
      * 核心：处理手动存档 (Pinned)
      */
     const handleArchiveLogic = async (activeTab: any, config: any) => {
+        console.log("handleArchiveLogic", activeTab, config);
+
         const cleanedUrl = cleanBiliUrl(activeTab.url || "");
         const colTitle = await getCollectionTitle(activeTab.id);
         if (colTitle) {
@@ -101,14 +103,7 @@ export default defineBackground(() => {
                     MAX_HISTORY_LENGTH,
                 );
                 await browser.storage.local.set({ latestHistory: newLatest });
-
-                // 广播更新通知给 Popup
-                browser.runtime
-                    .sendMessage({
-                        type: "REFRESH_HISTORY",
-                        data: newLatest.slice(0, 2), // 直接传递数组
-                    })
-                    .catch(() => {});
+               
             }
         }
     });

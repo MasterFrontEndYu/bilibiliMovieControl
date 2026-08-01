@@ -29,14 +29,14 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
         } else {
             updatedRanges = [...props.ranges, newRange];
         }
-        props.onUpdate(updatedRanges);
+        props.onUpdate({ opRanges : updatedRanges });
         handleResetInput();
         setCurrentId(null); 
     };
 
     // 删除时间段
     const handleRemove = (id: string) => {
-        props.onUpdate(props.ranges.filter((r) => r.id !== id));
+        props.onUpdate({ opRanges: props.ranges.filter((r) => r.id !== id) });
     };
 
     // 点击列表项：回填数据到编辑框（方便快速修改）
@@ -50,6 +50,7 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
     const handleResetInput = () => {
         setCurrentStart(defaultTime());
         setCurrentEnd(defaultTime());
+        setCurrentId(null);
     };
 
     return (
@@ -76,7 +77,7 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
                         {(range) => (
                             <div
                                 onClick={() => handleSelect(range)}
-                                class="flex justify-between items-center px-2.5 py-1 bg-base-100 border border-base-300 rounded-md cursor-pointer transition-all duration-200 hover:border-primary"
+                                class={`flex justify-between items-center px-2.5 py-1 bg-base-100 border ${range.id == currentId() ? "border-primary " :"border-base-300"} rounded-md cursor-pointer transition-all duration-200 hover:border-primary`} 
                             >
                                 <span class="text-sm text-base-content/70 font-mono">
                                     {formatTime(range.start)} -{" "}
@@ -140,7 +141,7 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
             <div class="flex justify-around gap-2 mt-8 pb-8">
                 <button class="btn btn-soft btn-secondary btn-sm" onClick={handleConfirm}><Save size={14} /> 保存</button>
                 <button class="btn btn-soft btn-accent btn-sm" onClick={handleResetInput}><TimerReset size={14} /> 重置</button>
-                <button class="btn btn-soft btn-warning btn-sm" onClick={() => props.onClose()}><CopyX size={14} /> 取消</button>
+                <button class="btn btn-soft btn-warning btn-sm" onClick={() => props.onClose()}><CopyX size={14} /> 关闭</button>
             </div>
         </div>
     );

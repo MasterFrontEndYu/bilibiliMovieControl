@@ -101,7 +101,7 @@ export default function Home() {
                     <div class="">
                         <div class="bg-base-200/60 rounded-xl p-4">
                             <p class="text-sm text-base-content/60 mt-1">
-                                用户可以设置自动还是手动处理，默认自动，手动时只有用户存档的合集，才会触发功能。
+                                用户可以设置是否处理和合集。
                             </p>
                         </div>
                     </div>

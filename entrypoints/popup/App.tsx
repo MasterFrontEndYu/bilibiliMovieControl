@@ -34,14 +34,12 @@ export default function App() {
     /**
      * 应用配置：将当前所有状态写入 Storage 并广播给 Content Script
      */
-    const applyConfig = async (type: "setting" | "reset") => {
-        if (type === "reset") {
-            const zero = { h: 0, m: 0, s: 0 };
-            if (config.mode === "frame") {
-                updateConfig({ frameConfig : zero});
-            } else {
-                updateConfig({ jumpConfig: zero });
-            }
+    const applyConfig = async () => {
+        const zero = { h: 0, m: 0, s: 0 };
+        if (config.mode === "frame") {
+            updateConfig({ frameConfig : zero});
+        } else {
+            updateConfig({ jumpConfig: zero });
         }
     };
 
@@ -49,9 +47,8 @@ export default function App() {
      * 存档逻辑：将当前配置存入历史记录
      */
     const handleArchive = async () => {
-        console.log(1111);
         const activeTab = await getActiveTab();
-        console.log(activeTab);
+      
         // 2. 校验逻辑依然保持，但代码更整洁
         if (!activeTab?.id) return;
 
@@ -80,18 +77,6 @@ export default function App() {
     };
 
     /**
-     * TimeRangeManager 更新回调：更新 opRanges 并立即应用配置
-     */
-    const handleUpdateOpRanges = async (newRanges: TimeRange[]) => {
-
-        updateConfig({ opRanges: newRanges });
-        // await sendToActiveTab({
-        //     type: "UPDATE_CONFIG",
-        //     data: { opRanges: newRanges },
-        // });
-    };
-
-    /**
      * 加载历史记录到当前页面
      */
     const loadHistory = async (item: HistoryItem) => {
@@ -108,6 +93,7 @@ export default function App() {
 
     onMount(async () => {
         await initFromStorage();
+
         const res = await browser.storage.local.get([
             "latestHistory",
             "pinnedHistory",
@@ -259,14 +245,8 @@ export default function App() {
                         <Save size={14} /> 存档
                     </button>
                     <button
-                        class="btn btn-soft btn-secondary btn-sm"
-                        onClick={[applyConfig, "setting"]}
-                    >
-                        <Settings size={14} /> 应用
-                    </button>
-                    <button
                         class="btn btn-soft btn-warning btn-sm"
-                        onClick={[applyConfig, "reset"]}
+                        onClick={applyConfig}
                     >
                         <RotateCcw size={14} /> 重置
                     </button>
@@ -281,7 +261,7 @@ export default function App() {
             <Show when={showTimeManager()}>
                 <TimeRangeManager
                     ranges={config.opRanges}
-                    onUpdate={handleUpdateOpRanges}
+                    onUpdate={updateConfig}
                     onClose={() => setShowTimeManager(false)}
                 />
             </Show>

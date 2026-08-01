@@ -17,6 +17,12 @@ export interface HistoryItem extends Config {
     time: number;
 }
 
+export interface HistoryList {
+    collectionId: string;
+    items: HistoryItem[];
+}
+
+
 export interface HistoryItemProps {
     item: HistoryItem;
     onClick: (item: HistoryItem) => void;
@@ -37,6 +43,6 @@ export interface TimeRange {
 
 export interface TimeRangeManagerProps {
     ranges: TimeRange[];
-    onUpdate: (newList: TimeRange[]) => void;
+    onUpdate: (newConfig: { opRanges: TimeRange[] }) => void;
     onClose: () => void;
 }

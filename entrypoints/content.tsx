@@ -9,13 +9,15 @@ import {
     resetFrameAnalyzer,
     destroyFrameAnalyzer,
 } from "../utils/frameAnalyzer";
-import { isPageInPinnedHistory, createStorageListener } from "@/utils/bili";
-import { TimeRange, TimePoint, BiliVideoConfig } from "@/types/types";
+import { createStorageListener } from "@/utils/bili";
+import { BiliVideoConfig } from "@/types/types";
 
 import { VideoUI } from "@/components/VideoUI";
+import { formatTime, toSeconds } from "@/utils/commonUse";
 
 // TODO 1. 存档保存，地址问题与local.host 不一致的问题，需要统一方法。
 // TODO 2. popup图标要更据状态显示不同图标。
+
 // TODO 3. 新增样式选择，给用户选择不同的UI样式，需要完成 - 设置时间如同老方法显示在页面上。
 
 // TODO 4. 历史记录这样保存。合集名+合集具体内容二维数组保存，popup 还是老样子保存最新的单级，标题用css但行限制每而不是截取标题。
@@ -34,11 +36,7 @@ export default defineContentScript({
         const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 
         // ---------- 2. 工具函数 ----------
-        const toSeconds = (t: TimePoint) =>
-            (t.h || 0) * 3600 + (t.m || 0) * 60 + (t.s || 0);
-
-        const pad = (n: number) => n.toString().padStart(2, "0");
-        const formatTime = (t: TimePoint) => `${t.h}:${pad(t.m)}:${pad(t.s)}`;
+       
 
         // ---------- 3. 配置管理（统一数据源） ----------
         // 从 storage 加载初始配置
@@ -56,7 +54,6 @@ export default defineContentScript({
         ctx.addEventListener(window, "wxt:locationchange", async ({ newUrl }) => {
             console.log("URL changed to:", newUrl);
             // 在这里执行 URL 变化后的逻辑，例如重新挂载 UI
-            cachedIsPinned = await isPageInPinnedHistory(location.href);
             lastJumpTime = 0;
             resetFrameAnalyzer();
             setIsAnalyzing(false);
@@ -178,8 +175,6 @@ export default defineContentScript({
 
         // ---------- 7. 主循环 ----------
         let lastPageState = false;
-        let cachedIsPinned = false;
-        let cachedPinnedUrl = "";
 
         ctx.setInterval(async () => {
             try {
@@ -190,15 +185,9 @@ export default defineContentScript({
                     document.querySelector(".cur-list")
                 );
 
-                // console.log("isCol", isCol);
-                // console.log("isAutoHandle", config.isAutoHandle);
-                // console.log("cachedIsPinned", cachedIsPinned);
-
-                // 7.3 计算是否运行逻辑（使用内存信号，不再读 storage）
                 const runControl =
-                    isCol && (config.isAutoHandle || cachedIsPinned);
+                    isCol && config.isAutoHandle;
 
-                // console.log("runControl:", runControl, "lastPageState:", lastPageState);
 
                 // 7.4 更新 ready 状态
                 if (runControl !== lastPageState) {
@@ -206,7 +195,6 @@ export default defineContentScript({
                     await browser.storage.local.set({
                         isPageReady: runControl,
                     });
-                    // console.log("-----------------UI 加载--------------------");
                     ui.mount();
                 }
 
