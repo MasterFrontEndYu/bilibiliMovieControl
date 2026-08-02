@@ -29,7 +29,7 @@ export interface HistoryCollection {
     items: HistoryConfig[];
 }
 
-
+// test
 export interface TimePoint {
     h: number; // 小时
     m: number; // 分钟
