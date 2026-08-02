@@ -58,7 +58,6 @@ export default defineContentScript({
 
         browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             if (msg.type === "GET_PAGE_CONFIG") {
-                console.log("GET_PAGE_CONFIG","我接受到信息啦");
                 sendResponse({ received: true });
                 return true; 
             }
@@ -203,6 +202,14 @@ export default defineContentScript({
 
         // ---------- 9. 初始化分析器 ----------
         initFrameAnalyzer();
+
+        browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+            if (msg.type === "PING") {
+                sendResponse({ alive: true });
+                return true;
+            }
+            return false;
+        });
 
         // ---------- 10. 清理 ----------
         ctx.onInvalidated(() => {

@@ -27,7 +27,7 @@ export const HistoryList: Component<HistoryListConfig> = (props) => {
                 <For each={props.items} fallback={<div class="text-base-content/60 text-xs my-1 text-center">暂无记录</div>}>
                     {item => (
                         <div
-                            class={`flex-1 w-61.5 px-2 flex items-center text-[12px] cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap transition-all duration-200 hover:shadow-sm rounded ${props.isPinned
+                            class={`w-61.5 h-8 px-2 flex items-center text-[12px] cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap transition-all duration-200 hover:shadow-sm rounded ${props.isPinned
                                     ? 'bg-primary/10 hover:bg-primary/20 hover:text-primary'
                                     : 'bg-secondary/10 hover:bg-secondary/20 hover:text-primary'
                                 }`}

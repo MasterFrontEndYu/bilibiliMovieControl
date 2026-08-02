@@ -59,10 +59,6 @@ export const getCollectionTitle = async (tabId: number): Promise<string> => {
                     ".simple-base-item.video-pod__item.active.normal .title",
                 ) as HTMLElement | null;
 
-                console.log("titleEl", titleEl?.title, "titleEl2", titleEl2?.title, "isColl", isColl);
-
-
-
                 if (isColl) {
                    return titleEl?.title;
                 } else {

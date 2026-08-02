@@ -26,7 +26,6 @@ export default defineBackground(() => {
      * 核心：处理手动存档 (Pinned)
      */
     const handleArchiveLogic = async (activeTab: any, config: any) => {
-
         const colTitle = await getCollectionTitle(activeTab.id);
 
         if (colTitle) {
@@ -119,4 +118,71 @@ export default defineBackground(() => {
             }
         }
     });
+
+    /**
+     * 根据用户打开的页面判断是否为video页，并设置icon
+     */
+    async function updateIcon(isActive: boolean) {
+        const suffix = isActive ? "active" : "inactive";
+        try {
+            await browser.action.setIcon({
+                path: {
+                    16: `icon/icon-16-${suffix}.png`,
+                    32: `icon/icon-32-${suffix}.png`,
+                    48: `icon/icon-48-${suffix}.png`,
+                    96: `icon/icon-96-${suffix}.png`,
+                    128: `icon/icon-128-${suffix}.png`,
+                },
+            });
+        } catch (error) {
+            console.error("更新图标失败:", error);
+        }
+    }
+
+    async function updatePageReadyViaPing() {
+        try {
+            const [tab] = await browser.tabs.query({
+                active: true,
+                currentWindow: true,
+            });
+            if (!tab || !tab.id || !tab.url) {
+                await browser.storage.local.set({ isPageReady: false });
+                updateIcon(false);
+                return;
+            }
+            // 尝试发送消息，如果成功说明 content script 存活
+            const response = await browser.tabs.sendMessage(tab.id, {
+                type: "PING",
+            });
+            if (response && response.alive === true) {
+                await browser.storage.local.set({ isPageReady: true });
+                updateIcon(true);
+            } else {
+                await browser.storage.local.set({ isPageReady: false });
+                updateIcon(false);
+            }
+        } catch {
+            // 发送失败，说明 content script 不存在
+            await browser.storage.local.set({ isPageReady: false });
+            updateIcon(false);
+        }
+    }
+
+    // 监听标签页切换和更新
+    browser.tabs.onActivated.addListener(updatePageReadyViaPing);
+    browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (changeInfo.status === "complete" && tab.active) {
+            updatePageReadyViaPing();
+        }
+    });
+
+    // 3. storage 变化（内容脚本设置 isPageReady）
+    browser.storage.onChanged.addListener((changes, area) => {
+        if (area === "local" && changes.isPageReady) {
+            updateIcon(changes.isPageReady.newValue as boolean);
+        }
+    });
+
+    // 初始执行
+    updatePageReadyViaPing();
 });

@@ -7,7 +7,6 @@ import { OptionsFooter } from '@/components/OptionsFooter';
 import { getSoftName } from '@/utils/bilibili';
 
 export default function Layout(props: ParentProps) {
-  console.log('aa',location);
   const navigate = useNavigate();
 
   onMount(() => {
