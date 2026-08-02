@@ -7,8 +7,6 @@ import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
 const DEBOUNCE_TIME = 2000;
 const processedLogs = new Map<string, number>();
 
-// TODO: 1. 地址问题，合集每个视频地址都不一样。所以手动功能只在一个视频上有效果，需要该改一下
-
 export default defineBackground(() => {
     /**
      * 监听消息请求

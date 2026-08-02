@@ -1,5 +1,5 @@
 import { createSignal, onMount } from "solid-js";
-import { Info, CircleAlert, LayoutDashboard } from "lucide-solid";
+import { Info, LayoutDashboard } from "lucide-solid";
 import { browser } from "wxt/browser";
 
 export default function Home() {

@@ -7,10 +7,9 @@ import { browser } from "wxt/browser";
 import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
 import { getSoftName } from "@/utils/bilibili";
-import { HistoryConfig, TimeRange } from "@/types/types";
+import { HistoryConfig } from "@/types/types";
 import { useStorageConfig } from "@/hooks/useStorageConfig";
 
-// TODO 全局配置修改为，可以添加多个网页地址，让插件生效。目前只针对B站。
 
 export default function App() {
     const {
@@ -103,11 +102,10 @@ export default function App() {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center flex-1 font-bold">
                         <h1 class="flex flex-1 text-lg align-center">
-                            {" "}
                             {getSoftName()}
                         </h1>
                         <span
-                            class={`badge badge-xs mr-8 ${
+                            class={`badge badge-xs mr-6 ${
                                 config.isPageReady ? "badge-success" : "badge-ghost"
                             }`}
                         >
@@ -120,7 +118,7 @@ export default function App() {
                         onClick={openOptions}
                     >
                         <Settings size={12} />
-                        查看详情
+                        查看
                     </button>
                 </div>
 

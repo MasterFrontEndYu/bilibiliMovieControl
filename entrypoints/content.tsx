@@ -15,14 +15,9 @@ import { BiliVideoConfig } from "@/types/types";
 import { VideoUI } from "@/components/VideoUI";
 import { formatTime, toSeconds } from "@/utils/commonUse";
 
-// TODO 1. 存档保存，地址问题与local.host 不一致的问题，需要统一方法。
-
 // TODO 2. popup图标要更据状态显示不同图标。
 
 // TODO 3. 新增样式选择，给用户选择不同的UI样式，需要完成 - 设置时间如同老方法显示在页面上。
-
-// TODO 4. 历史记录这样保存。合集名+合集具体内容二维数组保存，popup 还是老样子保存最新的单级，标题用css但行限制每而不是截取标题。
-//         合集数据添加一个合集标识。
 
 export default defineContentScript({
     matches: ["*://*.bilibili.com/video/*"],

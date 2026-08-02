@@ -1,4 +1,4 @@
-import { Settings, Info, CircleAlert } from "lucide-solid";
+import { Info, CircleAlert } from "lucide-solid";
 
 import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
 
