@@ -9,11 +9,10 @@ import {
     resetFrameAnalyzer,
     destroyFrameAnalyzer,
 } from "../utils/frameAnalyzer";
-import { createStorageListener } from "@/utils/bilibili";
+import { createStorageListener, formatTime, toSeconds } from "@/utils/bilibili";
 import { BiliVideoConfig } from "@/types/types";
 
 import { VideoUI } from "@/components/VideoUI";
-import { formatTime, toSeconds } from "@/utils/commonUse";
 
 // TODO 2. popup图标要更据状态显示不同图标。
 
