@@ -6,7 +6,7 @@ import { TimeRangeManager } from "@/components/TimeRangeList";
 import { browser } from "wxt/browser";
 import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
-import { getSoftName } from "@/utils/bili";
+import { getSoftName } from "@/utils/bilibili";
 import { HistoryConfig, TimeRange } from "@/types/types";
 import { useStorageConfig } from "@/hooks/useStorageConfig";
 
@@ -77,14 +77,6 @@ export default function App() {
     };
 
     /**
-     * 加载历史记录到当前页面
-     */
-    const loadHistory = async (item: HistoryConfig) => {
-        await browser.tabs.update({ url: item.url });
-        window.close();
-    };
-
-    /**
      * 打开配置页
      */
     const openOptions = () => {
@@ -128,7 +120,7 @@ export default function App() {
                         onClick={openOptions}
                     >
                         <Settings size={12} />
-                        详情
+                        查看详情
                     </button>
                 </div>
 
@@ -244,7 +236,7 @@ export default function App() {
                     
                 <HistoryList
                     items={latestHistory()}
-                    maxLength={2}
+                    maxLength={LATEST_HISTORY_LENGTH}
                     isPinned={false}
                 />
                 <button
@@ -255,10 +247,10 @@ export default function App() {
                 </button>
                 <HistoryList
                     items={pinnedHistory()}
-                    maxLength={3}
+                    maxLength={PINNED_HISTORY_LENGTH}
                     isPinned={true}
                 />
-                
+
             </Show>
             
             <Show when={showTimeManager()}>

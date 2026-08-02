@@ -1,8 +1,8 @@
 import { browser } from "wxt/browser";
-import { getCollectionTitle } from "@/utils/bili";
+import { getCollectionTitle } from "@/utils/bilibili";
 import { HistoryConfig, TimePoint, TimeRange } from "@/types/types";
 
-import { MAX_HISTORY_LENGTH, cleanBiliUrl } from "@/utils/bili";
+import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
 
 const DEBOUNCE_TIME = 2000;
 const processedLogs = new Map<string, number>();
@@ -11,18 +11,31 @@ const processedLogs = new Map<string, number>();
 
 export default defineBackground(() => {
     /**
+     * 监听消息请求
+     */
+    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === "DO_ARCHIVE") {
+            handleArchiveLogic(message.data.tab, message.data.config).then(
+                (newPinned) => {
+                    sendResponse({ success: true, pinnedHistory: newPinned });
+                },
+            );
+            return true; // 保持异步通道开启
+        }
+    });
+
+    /**
      * 核心：处理手动存档 (Pinned)
      */
     const handleArchiveLogic = async (activeTab: any, config: any) => {
-        console.log("handleArchiveLogic", activeTab, config);
 
-        const cleanedUrl = cleanBiliUrl(activeTab.url || "");
         const colTitle = await getCollectionTitle(activeTab.id);
+
         if (colTitle) {
             const currentData: HistoryConfig = {
-                id: activeTab?.id || Date.now(),
+                id: activeTab?.id,
                 title: colTitle,
-                url: cleanedUrl, // 使用清洗后的 URL
+                url: cleanBiliUrl(activeTab?.url),
                 time: Date.now(),
                 mode: config.mode,
                 opRanges: config.opRanges,
@@ -31,10 +44,12 @@ export default defineBackground(() => {
             };
 
             const res = await browser.storage.local.get("pinnedHistory");
+
             const history = (res.pinnedHistory as HistoryConfig[]) || [];
 
             const filteredHistory = history.filter(
-                (item: HistoryConfig) => cleanBiliUrl(item.url) !== cleanedUrl,
+                (item: HistoryConfig) =>
+                    cleanBiliUrl(item.url) !== cleanBiliUrl(activeTab.url),
             );
 
             const newHistory = [currentData, ...filteredHistory].slice(
@@ -51,20 +66,19 @@ export default defineBackground(() => {
      * 自动记录最近历史 (Latest)
      */
     browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-        const rawUrl: string = tab.url || "";
-
+        await new Promise((resolve) => setTimeout(resolve, 4000));
         if (
             changeInfo.status === "complete" &&
-            rawUrl.includes("bilibili.com/video")
+            tab.url?.includes("bilibili.com/video")
         ) {
-            const cleanedUrl = cleanBiliUrl(rawUrl);
+            const rawUrl: string = cleanBiliUrl(tab.url || "") || "";
             const now = Date.now();
 
             // 防抖
-            const lastTime = processedLogs.get(cleanedUrl) || 0;
+            const lastTime = processedLogs.get(rawUrl) || 0;
             if (now - lastTime < DEBOUNCE_TIME) return;
 
-            processedLogs.set(cleanedUrl, now);
+            processedLogs.set(rawUrl, now);
             if (processedLogs.size > 50) {
                 // 防止 Map 过大
                 const firstKey = processedLogs.keys().next().value;
@@ -72,6 +86,7 @@ export default defineBackground(() => {
             }
 
             const colTitle = await getCollectionTitle(tabId);
+
             if (colTitle) {
                 // 读取当前最新的配置快照
                 const storage = await browser.storage.local.get({
@@ -85,7 +100,7 @@ export default defineBackground(() => {
                 const newItem: HistoryConfig = {
                     id: tabId,
                     title: colTitle,
-                    url: cleanedUrl,
+                    url: rawUrl,
                     time: now,
                     opRanges: storage.opRanges as TimeRange[],
                     frameConfig: storage.frameConfig as TimePoint,
@@ -95,7 +110,7 @@ export default defineBackground(() => {
 
                 const history = (storage.latestHistory as any[]) || [];
                 const filteredLatest = history.filter(
-                    (item: any) => cleanBiliUrl(item.url) !== cleanedUrl,
+                    (item: any) => cleanBiliUrl(item.url) !== rawUrl,
                 );
 
                 const newLatest = [newItem, ...filteredLatest].slice(
@@ -103,22 +118,7 @@ export default defineBackground(() => {
                     MAX_HISTORY_LENGTH,
                 );
                 await browser.storage.local.set({ latestHistory: newLatest });
-               
             }
-        }
-    });
-
-    /**
-     * 监听消息请求
-     */
-    browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === "DO_ARCHIVE") {
-            handleArchiveLogic(message.data.tab, message.data.config).then(
-                (newPinned) => {
-                    sendResponse({ success: true, pinnedHistory: newPinned });
-                },
-            );
-            return true; // 保持异步通道开启
         }
     });
 });

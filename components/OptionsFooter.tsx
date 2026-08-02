@@ -1,4 +1,4 @@
-import { getSoftVersion } from "@/utils/bili";
+import { getSoftVersion } from "@/utils/bilibili";
 
 
 

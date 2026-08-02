@@ -3,7 +3,7 @@ import { createSignal, onMount, For, Show } from 'solid-js';
 import { Trash2, ExternalLink, History as HistoryIcon, Info } from 'lucide-solid';
 import { browser } from 'wxt/browser';
 
-import { MAX_HISTORY_LENGTH } from "@/utils/bili";
+import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
 
 import type { HistoryConfig } from '@/types/types';
 
@@ -101,6 +101,7 @@ export default function HistoryPage() {
                 <p class="m-0 text-xs text-base-content/70 leading-relaxed">
                     <b>关于自动存档：</b> 插件会在后台检测到视频为“合集/列表”且符合读帧条件时自动创建此记录。
                     Options 页面会保留最近的 { MAX_HISTORY_LENGTH } 条记录。
+                    但popup页面只会显示最新的 {LATEST_HISTORY_LENGTH} 条记录
                 </p>
             </div>
         </div>

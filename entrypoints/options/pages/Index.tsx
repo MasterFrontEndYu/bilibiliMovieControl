@@ -1,6 +1,6 @@
 import { Settings, Info, CircleAlert } from "lucide-solid";
 
-import { MAX_HISTORY_LENGTH } from "@/utils/bili";
+import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
 
 export default function Home() {
     return (
@@ -96,7 +96,7 @@ export default function Home() {
             <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
                 <div class="card-body gap-3 p-6">
                     <h2 class="card-title text-base font-bold text-base-content flex items-center gap-2">
-                        <span class="text-accent">💾</span> 状态设置
+                        <span class="text-accent">📈</span> 状态设置
                     </h2>
                     <div class="">
                         <div class="bg-base-200/60 rounded-xl p-4">
@@ -118,9 +118,9 @@ export default function Home() {
                         <div class="bg-base-200/60 rounded-xl p-4">
                             <div class="flex items-center gap-2 text-sm font-semibold text-base-content">
                                 <span class="badge badge-outline badge-sm">
-                                    手动
+                                    手动存档
                                 </span>
-                                显示最新 3 条
+                                显示最新 {PINNED_HISTORY_LENGTH} 条
                             </div>
                             <p class="text-sm text-base-content/60 mt-1">
                                 详情页保存最近 {MAX_HISTORY_LENGTH}{" "}
@@ -130,9 +130,9 @@ export default function Home() {
                         <div class="bg-base-200/60 rounded-xl p-4">
                             <div class="flex items-center gap-2 text-sm font-semibold text-base-content">
                                 <span class="badge badge-outline badge-sm">
-                                    自动
+                                    自动保存
                                 </span>
-                                显示最新 2 条
+                                显示最新 {LATEST_HISTORY_LENGTH} 条
                             </div>
                             <p class="text-sm text-base-content/60 mt-1">
                                 详情页保存最近 {MAX_HISTORY_LENGTH}{" "}

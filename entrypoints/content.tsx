@@ -9,7 +9,7 @@ import {
     resetFrameAnalyzer,
     destroyFrameAnalyzer,
 } from "../utils/frameAnalyzer";
-import { createStorageListener } from "@/utils/bili";
+import { createStorageListener } from "@/utils/bilibili";
 import { BiliVideoConfig } from "@/types/types";
 
 import { VideoUI } from "@/components/VideoUI";
@@ -53,8 +53,6 @@ export default defineContentScript({
 
         // 注册监听 DOM url 变化
         ctx.addEventListener(window, "wxt:locationchange", async ({ newUrl }) => {
-            console.log("URL changed to:", newUrl);
-            // 在这里执行 URL 变化后的逻辑，例如重新挂载 UI
             lastJumpTime = 0;
             resetFrameAnalyzer();
             setIsAnalyzing(false);
@@ -63,6 +61,15 @@ export default defineContentScript({
         // 注册监听 storage 储存变化
         browser.storage.onChanged.addListener(storageListener);
 
+        browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+            if (msg.type === "GET_PAGE_CONFIG") {
+                console.log("GET_PAGE_CONFIG","我接受到信息啦");
+                sendResponse({ received: true });
+                return true; 
+            }
+        });
+
+
         // ---------- 4. UI 挂载 ----------
 
         const ui = createIntegratedUi(ctx, {
@@ -70,11 +77,7 @@ export default defineContentScript({
             anchor: () => {
                 // 动态返回当前锚点
                 return (
-                    ((document.getElementById("viewbox_report") ||
-                        document.querySelector(".video-info-title") ||
-                        document.querySelector(
-                            ".cl-info-title",
-                        )) as HTMLElement) || document.body
+                   document.getElementById(TARGET_ID) as HTMLElement
                 );
             },
             onMount: (container) => {
@@ -112,13 +115,11 @@ export default defineContentScript({
             const now = Date.now();
             if (now - lastJumpTime < 3000) return; // 防抖
             const nextBtn = document.querySelector(
-                ".bpx-player-ctrl-next",
+                BTN_CLASS,
             ) as HTMLElement;
             if (nextBtn) {
                 lastJumpTime = now;
                 nextBtn.click();
-                resetFrameAnalyzer();
-                setIsAnalyzing(false); // 重置分析状态
             }
         };
 
@@ -180,11 +181,7 @@ export default defineContentScript({
         ctx.setInterval(async () => {
             try {
                 // 7.1 判断是否合集页
-                const isCol = !!(
-                    document.querySelector(".video-pod") ||
-                    document.querySelector(".multi-page") ||
-                    document.querySelector(".cur-list")
-                );
+                const isCol = !!document.querySelector(".video-pod");
 
                 const runControl =
                     isCol && config.isAutoHandle;

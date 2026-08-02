@@ -1,7 +1,7 @@
 import {
     CirclePlay
 } from 'lucide-solid';
-import { getSoftName } from '@/utils/bili';
+import { getSoftName } from '@/utils/bilibili';
 
 
 export default function AboutPage() {

@@ -19,9 +19,16 @@ export interface HistoryConfig extends Config {
 
 export interface HistoryListConfig {
     maxLength: number; 
-    isPinned?: boolean;
+    isPinned: boolean;
     items: HistoryConfig[];
 }
+
+export interface HistoryCollection {
+    id: string;
+    title: string;
+    items: HistoryConfig[];
+}
+
 
 export interface TimePoint {
     h: number; // 小时

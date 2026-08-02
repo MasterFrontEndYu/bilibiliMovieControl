@@ -14,6 +14,7 @@ if (root) {
             <Router base="/options.html" root={Layout}>
                 {routes}
             </Router>
+            
         ),
         root,
     );
