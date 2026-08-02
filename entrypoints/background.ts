@@ -168,15 +168,15 @@ export default defineBackground(() => {
         }
     }
 
-    // 监听标签页切换和更新
+    // 1. 监听标签页切换和更新
     browser.tabs.onActivated.addListener(updatePageReadyViaPing);
+    // 2. 监听地址栏变化
     browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (changeInfo.status === "complete" && tab.active) {
             updatePageReadyViaPing();
         }
     });
-
-    // 3. storage 变化（内容脚本设置 isPageReady）
+    // 3. storage 变化
     browser.storage.onChanged.addListener((changes, area) => {
         if (area === "local" && changes.isPageReady) {
             updateIcon(changes.isPageReady.newValue as boolean);

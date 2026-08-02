@@ -171,7 +171,6 @@ export default defineContentScript({
 
         // ---------- 7. 主循环 ----------
         let lastPageState = false;
-
         ctx.setInterval(async () => {
             try {
                 // 7.1 判断是否合集页
@@ -179,7 +178,6 @@ export default defineContentScript({
 
                 const runControl =
                     isCol && config.isAutoHandle;
-
                 // 7.4 更新 ready 状态
                 if (runControl !== lastPageState) {
                     lastPageState = runControl;
@@ -205,7 +203,7 @@ export default defineContentScript({
 
         browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             if (msg.type === "PING") {
-                sendResponse({ alive: true });
+                sendResponse({ alive: lastPageState });
                 return true;
             }
             return false;
