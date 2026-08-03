@@ -6,7 +6,7 @@ import { TimeRangeManager } from "@/components/TimeRangeList";
 import { browser } from "wxt/browser";
 import { Settings, Clock, Save, RotateCcw } from "lucide-solid";
 
-import { getSoftName } from "@/utils/bilibili";
+import { getSoftName, LATEST_HISTORY_LENGTH, PINNED_HISTORY_LENGTH } from "@/utils/bilibili";
 import { HistoryConfig } from "@/types/types";
 import { useStorageConfig } from "@/hooks/useStorageConfig";
 

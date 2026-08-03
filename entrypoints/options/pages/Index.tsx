@@ -1,6 +1,6 @@
 import { Info, CircleAlert } from "lucide-solid";
 
-import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
+import { MAX_HISTORY_LENGTH ,PINNED_HISTORY_LENGTH,LATEST_HISTORY_LENGTH} from "@/utils/bilibili";
 
 export default function Home() {
     return (
