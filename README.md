@@ -2,7 +2,7 @@
 
 > 一款针对 Bilibili（下称 B 站）**用户上传合集**的连播辅助浏览器插件。通过**像素级帧分析**与灵活的**双重存档机制**，自动跳过片头 / 片尾并切换下一 P，让你的追剧体验真正实现"无人值守"。
 
-![Version](https://img.shields.io/badge/version-1.3.3-blue)
+![Version](https://img.shields.io/github/package-json/v/sanguogege/BilibiliMovieControl)
 ![Manifest](https://img.shields.io/badge/Manifest_V3-✓-green)
 ![Tech](https://img.shields.io/badge/WXT%20%2B%20SolidJS-fb7299)
 
