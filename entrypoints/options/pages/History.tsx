@@ -3,7 +3,7 @@ import { createSignal, onMount, For, Show } from 'solid-js';
 import { Trash2, ExternalLink, History as HistoryIcon, Info } from 'lucide-solid';
 import { browser } from 'wxt/browser';
 
-import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
+import { MAX_HISTORY_LENGTH ,LATEST_HISTORY_LENGTH} from "@/utils/bilibili";
 
 import type { HistoryConfig } from '@/types/types';
 

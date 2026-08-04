@@ -3,7 +3,7 @@ import { createSignal, onMount, For, Show } from "solid-js";
 import { Trash2, ExternalLink, Info, HandGrab } from "lucide-solid";
 import { browser } from "wxt/browser";
 
-import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
+import { MAX_HISTORY_LENGTH ,PINNED_HISTORY_LENGTH} from "@/utils/bilibili";
 
 // 定义和 Background/Popup 一致的接口
 import type { HistoryConfig } from "@/types/types";

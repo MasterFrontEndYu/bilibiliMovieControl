@@ -2,6 +2,7 @@ import { createSignal, For } from "solid-js";
 import { TimeInput } from "@/components/TimeInput";
 import { Trash2, Clock, Save, TimerReset, CopyX } from "lucide-solid";
 import type { TimeRange, TimeRangeManagerProps } from "@/types/types";
+import { formatTime } from "@/utils/bilibili"
 
 
 export const TimeRangeManager = (props: TimeRangeManagerProps) => {
@@ -27,7 +28,7 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
         }
         props.onUpdate({ opRanges : updatedRanges });
         handleResetInput();
-        setCurrentId(null); 
+        setCurrentId(null);
     };
 
     // 删除时间段
@@ -73,7 +74,7 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
                         {(range) => (
                             <div
                                 onClick={() => handleSelect(range)}
-                                class={`flex justify-between items-center px-2.5 py-1 bg-base-100 border ${range.id == currentId() ? "border-primary " :"border-base-300"} rounded-md cursor-pointer transition-all duration-200 hover:border-primary`} 
+                                class={`flex justify-between items-center px-2.5 py-1 bg-base-100 border ${range.id == currentId() ? "border-primary " :"border-base-300"} rounded-md cursor-pointer transition-all duration-200 hover:border-primary`}
                             >
                                 <span class="text-sm text-base-content/70 font-mono">
                                     {formatTime(range.start)} -{" "}
@@ -93,7 +94,7 @@ export const TimeRangeManager = (props: TimeRangeManagerProps) => {
                     </For>
                 </div>
             </div>
-           
+
             {/* 2. 中间编辑区 */}
             <div class="p-3 mt-4 bg-primary/5 flex flex-col gap-2.5 rounded-box">
                 <div class="text-xs font-bold text-primary flex items-center gap-1">
