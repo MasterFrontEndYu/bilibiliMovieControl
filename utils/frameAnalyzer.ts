@@ -27,8 +27,8 @@ const DEFAULT_CONFIG: AnalyzerConfig = {
 // 内部全局状态
 let frameCanvas: HTMLCanvasElement | null = null;
 let frameCtx: CanvasRenderingContext2D | null = null;
-let previousBuffer: Uint8ClampedArray | null = null;
-let currentBuffer: Uint8ClampedArray | null = null;
+let previousBuffer: Uint8ClampedArray | null = null; // 存储上一帧采样数据
+let isBufferValid = false; // 是否有有效的参考帧
 
 let blackFrameCount = 0;
 let staticFrameCount = 0;
@@ -43,7 +43,17 @@ export function initFrameAnalyzer(config?: Partial<AnalyzerConfig>): void {
         currentConfig = { ...DEFAULT_CONFIG, ...config };
     }
 
-    if (frameCanvas) return;
+    if (frameCanvas) {
+        // 若尺寸变化，重建
+        if (
+            frameCanvas.width !== currentConfig.sampleWidth ||
+            frameCanvas.height !== currentConfig.sampleHeight
+        ) {
+            destroyFrameAnalyzer();
+        } else {
+            return;
+        }
+    }
 
     frameCanvas = document.createElement("canvas");
     frameCanvas.width = currentConfig.sampleWidth;
@@ -53,7 +63,7 @@ export function initFrameAnalyzer(config?: Partial<AnalyzerConfig>): void {
     const bufferSize =
         currentConfig.sampleWidth * currentConfig.sampleHeight * 4;
     previousBuffer = new Uint8ClampedArray(bufferSize);
-    currentBuffer = new Uint8ClampedArray(bufferSize);
+    isBufferValid = false; // 初始无有效参考帧
 
     resetFrameAnalyzer();
 }
@@ -77,92 +87,105 @@ function isPictureInPictureActive(): boolean {
 }
 
 /**
- * 图像分析：黑屏检测
+ * 重置状态 (保留缓冲区，仅重置计数器，并清空有效性标记)
  */
-export function isBlackScreen(video: HTMLVideoElement): boolean {
-    if (!frameCtx || video.readyState < 2) return false;
-
-    frameCtx.drawImage(
-        video,
-        0,
-        0,
-        currentConfig.sampleWidth,
-        currentConfig.sampleHeight,
-    );
-    const imageData = frameCtx.getImageData(
-        0,
-        0,
-        currentConfig.sampleWidth,
-        currentConfig.sampleHeight,
-    );
-    const data = imageData.data;
-
-    let totalLuminance = 0;
-    const pixelStep = 16;
-    let sampledPixels = 0;
-
-    for (let i = 0; i < data.length; i += pixelStep) {
-        totalLuminance +=
-            0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
-        sampledPixels++;
-    }
-
-    return (
-        sampledPixels > 0 &&
-        totalLuminance / sampledPixels < currentConfig.blackLuminanceThreshold
-    );
+export function resetFrameAnalyzer(): void {
+    blackFrameCount = 0;
+    staticFrameCount = 0;
+    // 触发后重置标记，让静态检测从下一帧重新建立参考
+    isBufferValid = false;
+    // 不清零 previousBuffer，但下次会覆盖
 }
 
 /**
- * 图像分析：静态帧检测 (对比前后两帧)
+ * 内部函数：一次绘制并分析帧，返回黑屏和静态帧判断
  */
-export function isStaticFrame(video: HTMLVideoElement): boolean {
-    if (!frameCtx || video.readyState < 2 || !previousBuffer || !currentBuffer)
-        return false;
-
-    frameCtx.drawImage(
-        video,
-        0,
-        0,
-        currentConfig.sampleWidth,
-        currentConfig.sampleHeight,
-    );
-    const newData = frameCtx.getImageData(
-        0,
-        0,
-        currentConfig.sampleWidth,
-        currentConfig.sampleHeight,
-    ).data;
-
-    // 初始帧处理
-    if (
-        blackFrameCount === 0 &&
-        staticFrameCount === 0 &&
-        previousBuffer[0] === 0
-    ) {
-        previousBuffer.set(newData);
-        return false;
+function analyzeFrame(video: HTMLVideoElement): {
+    black: boolean;
+    static: boolean;
+} {
+    if (!frameCtx || video.readyState < 2 || !previousBuffer) {
+        return { black: false, static: false };
     }
 
-    currentBuffer.set(newData);
-    let diffPixels = 0;
-    const pixelStep = 16;
-    const totalSampledPixels =
-        (currentConfig.sampleWidth * currentConfig.sampleHeight) / 4;
+    try {
+        // 绘制视频到 canvas
+        frameCtx.drawImage(
+            video,
+            0,
+            0,
+            currentConfig.sampleWidth,
+            currentConfig.sampleHeight,
+        );
+        const imageData = frameCtx.getImageData(
+            0,
+            0,
+            currentConfig.sampleWidth,
+            currentConfig.sampleHeight,
+        );
+        const data = imageData.data;
+        const totalPixels = data.length / 4;
 
-    for (let i = 0; i < currentBuffer.length; i += pixelStep) {
-        if (
-            Math.abs(currentBuffer[i] - previousBuffer[i]) >
-            currentConfig.staticPixelDiffThreshold
-        ) {
-            diffPixels++;
+        // 动态计算采样步长，使采样点数大约为 2000 个，但限制最大步长 8
+        const targetSamples = 2000;
+        let step = Math.max(
+            1,
+            Math.floor(Math.sqrt(totalPixels / targetSamples)),
+        );
+        step = Math.min(step, 8); // 防止采样过疏
+
+        // 合并循环：同时计算平均亮度和静态差异
+        let totalLuminance = 0;
+        let sampledPixels = 0;
+        let diffPixels = 0;
+        const diffThreshold = currentConfig.staticPixelDiffThreshold;
+
+        const isInitial = !isBufferValid;
+
+        for (let i = 0; i < data.length; i += step * 4) {
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+
+            // 1. 亮度累加
+            totalLuminance += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            sampledPixels++;
+
+            // 2. 静态对比（仅当有有效参考帧）
+            if (!isInitial) {
+                const diff =
+                    Math.abs(r - previousBuffer[i]) +
+                    Math.abs(g - previousBuffer[i + 1]) +
+                    Math.abs(b - previousBuffer[i + 2]);
+                // 平均通道差异
+                if (diff / 3 > diffThreshold) {
+                    diffPixels++;
+                }
+            }
         }
-    }
 
-    previousBuffer.set(currentBuffer);
-    return (
-        diffPixels / totalSampledPixels < currentConfig.staticDiffRatioThreshold
-    );
+        const avgLuminance =
+            sampledPixels > 0 ? totalLuminance / sampledPixels : 0;
+        const black = avgLuminance < currentConfig.blackLuminanceThreshold;
+
+        // 静态判断（仅当有参考帧）
+        let staticFlag = false;
+        if (!isInitial && sampledPixels > 0) {
+            const diffRatio = diffPixels / sampledPixels;
+            staticFlag = diffRatio < currentConfig.staticDiffRatioThreshold;
+        }
+
+        // 更新缓冲区并标记有效
+        previousBuffer.set(data);
+        isBufferValid = true;
+
+        return { black, static: staticFlag };
+    } catch (e) {
+        console.warn("[FrameAnalyzer] 分析帧异常:", e);
+        // 异常时重置有效性标记，避免基于错误帧的后续检测
+        isBufferValid = false;
+        return { black: false, static: false };
+    }
 }
 
 /**
@@ -177,19 +200,18 @@ export function checkEndingByFrame(
     // 1. 基础守卫
     if (!video || video.paused || !isPlaying) return false;
     if (isPictureInPictureActive() || video.readyState < 2) {
-        resetFrameAnalyzer();
+        // 画中画或未就绪时不分析，但保持状态（不重置计数器）
         return false;
     }
 
-    // 2. 执行图像判定 (不再检查百分比，此处默认已到达分析区域)
-    const black = isBlackScreen(video);
-    const stat = isStaticFrame(video);
+    // 2. 执行图像分析
+    const { black, static: stat } = analyzeFrame(video);
 
-    // 3. 计数器逻辑
+    // 3. 更新计数器
     blackFrameCount = black ? blackFrameCount + 1 : 0;
     staticFrameCount = stat ? staticFrameCount + 1 : 0;
 
-    // 4. 触发结果返回
+    // 4. 触发判断
     if (
         blackFrameCount >= currentConfig.blackFrameRequired ||
         staticFrameCount >= currentConfig.staticFrameRequired
@@ -197,7 +219,7 @@ export function checkEndingByFrame(
         console.log(
             `[BiliControl] 帧分析通过: 黑屏(${blackFrameCount}) | 静态(${staticFrameCount})`,
         );
-        resetFrameAnalyzer();
+        resetFrameAnalyzer(); // 触发后重置状态（包括清空有效性标记）
         return true;
     }
 
@@ -205,20 +227,21 @@ export function checkEndingByFrame(
 }
 
 /**
- * 重置状态
- */
-export function resetFrameAnalyzer(): void {
-    blackFrameCount = 0;
-    staticFrameCount = 0;
-    previousBuffer?.fill(0);
-    currentBuffer?.fill(0);
-}
-
-/**
- * 运行时动态更新算法敏感度
+ * 运行时动态更新算法敏感度（若尺寸改变则重建 canvas）
  */
 export function updateAnalyzerConfig(config: Partial<AnalyzerConfig>): void {
+    const oldWidth = currentConfig.sampleWidth;
+    const oldHeight = currentConfig.sampleHeight;
     currentConfig = { ...currentConfig, ...config };
+
+    // 如果尺寸变化，需要重新初始化
+    if (
+        oldWidth !== currentConfig.sampleWidth ||
+        oldHeight !== currentConfig.sampleHeight
+    ) {
+        destroyFrameAnalyzer();
+        initFrameAnalyzer(currentConfig);
+    }
 }
 
 /**
@@ -228,6 +251,6 @@ export function destroyFrameAnalyzer(): void {
     frameCanvas = null;
     frameCtx = null;
     previousBuffer = null;
-    currentBuffer = null;
+    isBufferValid = false;
     resetFrameAnalyzer();
 }
