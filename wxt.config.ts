@@ -7,11 +7,12 @@ export default defineConfig({
     vite: () => ({
         plugins: [tailwindcss()],
     }),
-    webExt: {
-        binaries: {
-            edge: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-        },
-    },
+    // webExt: {
+    //     binaries: {
+    //         // edge: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    //         edge: "/usr/bin/msedge",
+    //     },
+    // },
     manifest: {
         manifest_version: 3,
         browser_specific_settings: {
