@@ -1,4 +1,5 @@
 import { getSoftName } from '@/utils/bilibili';
+import { BadgeAlert } from '@lucide/solid';
 
 
 export default function AboutPage() {
@@ -7,10 +8,7 @@ export default function AboutPage() {
             {/* 头部标题 */}
             <header class="max-w-4xl mb-10">
                 <h1 class="text-3xl   mb-3 text-primary flex items-center gap-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24">
-                        <path d="M0 0h24v24H0z" fill="none" />
-                        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v3.75m0-10.036A11.96 11.96 0 0 1 3.598 6A12 12 0 0 0 3 9.75c0 5.592 3.824 10.29 9 11.622c5.176-1.332 9-6.03 9-11.622c0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.25-8.25-3.286m0 13.036h.008v.008H12z" />
-                    </svg>
+                    <BadgeAlert size={26} />
                      {getSoftName()}
                 </h1>
                 <p class="text-base-content/70 text-base leading-relaxed">
@@ -22,7 +20,7 @@ export default function AboutPage() {
             <div class="grid">
                 <section class="bg-base-100 p-6 my-2 rounded-2xl border border-base-300 shadow-sm">
                     <p class="m-0 text-sm text-base-content/70 leading-relaxed mt-2.5">
-                        <strong>框架：</strong> WTX + SolidJS rc 2.0 + TailwindCSS + DaisyUI
+                        <strong>框架：</strong> WTX + SolidJS rc 2.X + TailwindCSS + DaisyUI + @lucide/solid
                     </p>
                 </section>
                 <section class="bg-base-100 p-6 my-2 rounded-2xl border border-base-300 shadow-sm">

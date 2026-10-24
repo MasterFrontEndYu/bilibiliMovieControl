@@ -1,18 +1,18 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from "@tailwindcss/vite";
 
-
 // See https://wxt.dev/api/config.html
 export default defineConfig({
     vite: () => ({
-        plugins: [tailwindcss()],
+        plugins: [
+            tailwindcss()
+        ],
     }),
-    // webExt: {
-    //     binaries: {
-    //         // edge: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-    //         edge: "/usr/bin/msedge",
-    //     },
-    // },
+    webExt: {
+        binaries: {
+            edge: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+        },
+    },
     manifest: {
         manifest_version: 3,
         browser_specific_settings: {

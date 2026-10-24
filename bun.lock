@@ -5,6 +5,7 @@
     "": {
       "name": "B站连播助手",
       "dependencies": {
+        "@lucide/solid": "^1.61.0",
         "@solidjs/router": "^2.0.0-next.42",
         "@solidjs/web": "^2.0.0-rc.18",
         "@tailwindcss/vite": "^4.3.3",
@@ -159,6 +160,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.6.0", "", {}, "sha512-T7jf+5zgsZHwNJ4lvQ7/aezbyk0nNX+zJVWpmHA7VYsEx7a7qr5Rg5IbtJFqkgze5Y2sruq1RUY8Q837Od7iFw=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@lucide/solid": ["@lucide/solid@1.61.0", "", { "peerDependencies": { "solid-js": "^2.0.0-rc.0" } }, "sha512-3OBEUFrhQc6lPxooZ87KpMus8K3zFkLZ7G4S2xhLMVTivTihV8o2JP06d3LUcBLC3//81eSvRpn5f1Db//Zgpg=="],
 
     "@manypkg/find-root": ["@manypkg/find-root@1.1.0", "", { "dependencies": { "@babel/runtime": "^7.5.5", "@types/node": "^12.7.1", "find-up": "^4.1.0", "fs-extra": "^8.1.0" } }, "sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA=="],
 
