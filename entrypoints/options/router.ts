@@ -13,6 +13,7 @@ const routes = defineRoutes([
     { path: "/history", component: lazy(() => import("./pages/History.tsx")) },
     { path: "/manual", component: lazy(() => import("./pages/Manual.tsx")) },
     { path: "/about", component: lazy(() => import("./pages/About.tsx")) },
+    { path: "/shortcut", component: lazy(() => import("./pages/Shortcut.tsx")) },
 ]);
 
 export const Router = createRouter({

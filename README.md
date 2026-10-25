@@ -57,6 +57,12 @@
 - **Popup 状态徽章**："已就绪 / 未启动"实时反映插件在当前页面的可用状态
 - **页面悬浮提示**：视频标题栏下方显示跳过段数与当前切集起点，帧分析时闪烁指示点
 
+
+### 5. 新增快捷键
+
+- **B站原生快捷键支持**：B站网页播放器原生支持用 ] 跳转下一P、[ 跳转上一P。 不过 ] 位于回车键附近，单手操作不够顺手，也缺乏 “下一”的语义联想。
+- **连播助手**：本页面提供的是更友好、更易记的替代键（例如 N = Next），原生快捷键仍会正常工作，两者互不干扰。
+
 ---
 
 ## 🎯 适用范围说明
@@ -146,7 +152,7 @@ flowchart TD
 | 扩展框架 | [WXT](https://wxt.dev)（Web Extension Toolbox，MV3） |
 | UI 框架 | [SolidJS](https://www.solidjs.com) |
 | 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com)（自适应浏览器深浅色主题） |
-| 图标 | Heroicons |
+| 图标 | @lucide/solid 
 | 帧分析 | Canvas 像素采样（原生实现，无第三方依赖） |
 | 构建工具 | Vite + Bun |
 
@@ -154,29 +160,42 @@ flowchart TD
 
 ```
 BilibiliMovieControl/
-├── entrypoints/
-│   ├── background.ts          # 后台：自动/手动存档、图标状态管理、PING 心跳
-│   ├── content.tsx            # 内容脚本：主控制循环、UI 挂载、跳转逻辑
-│   ├── options/               # 设置页（含 5 个页面 + 路由）
-│   │   ├── App.tsx            # 侧边栏布局
-│   │   ├── router.ts
-│   │   └── pages/             # Index / Status / History / Manual / About
-│   └── popup/                 # 工具栏弹窗
+├── entrypoints/               # WXT 入口（每个文件 / 目录都是一个独立入口）
+│   ├── background.ts          # 后台：自动 / 手动存档、图标状态管理、PING 心跳
+│   ├── content.tsx            # 内容脚本：主控制循环、OP 跳过、切集、快捷键、UI 挂载
+│   ├── options/               # 设置页（options.html）
+│   │   ├── App.tsx            # 侧边栏布局 + 路由容器
+│   │   ├── main.tsx           # 页面挂载入口
+│   │   ├── router.ts          # hash 路由：/ /status /shortcut /history /manual /about
+│   │   ├── index.html
+│   │   └── pages/             # Index / Status / Shortcut / History / Manual / About
+│   └── popup/                 # 工具栏弹窗（popup.html）
+│       ├── App.tsx            # 弹窗外壳（卡片布局）
+│       ├── main.tsx
+│       ├── router.ts          # hash 路由：/ /open
+│       ├── index.html
+│       └── pages/             # Index（主面板）/ Open（多 OP 区间编辑器）
 ├── components/                # 共享 UI 组件
 │   ├── VideoUI.tsx            # 页面内悬浮状态条
 │   ├── TimeInput.tsx          # 时:分:秒 输入组件
-│   ├── TimeRangeList.tsx      # OP 跳转区间管理器
-│   ├── HistoryList.tsx        # 存档记录列表
-│   └── OptionsFooter.tsx
+│   ├── HistoryList.tsx        # 存档记录列表（跳转 / 删除）
+│   └── OptionsFooter.tsx      # 设置页页脚（版本与版权信息）
 ├── hooks/
-│   └── useStorageConfig.ts    # 配置统一管理（createStore + storage 同步）
+│   └── useStorageConfig.ts    # 配置统一管理（全局 store + storage 双向同步）
 ├── utils/
-│   ├── bilibili.ts            # B 站工具：URL 清洗、合集标题、时间换算等
-│   └── frameAnalyzer.ts       # 帧分析引擎（黑屏/静止画面检测）
-├── types/types.ts             # 类型定义（TimePoint / TimeRange / 配置 / 历史记录）
-├── public/icon/               # active / inactive 两套扩展图标
-├── wxt.config.ts              # WXT 配置（MV3、权限、Edge/Firefox 适配）
-└── package.json
+│   ├── bilibili.ts            # B 站工具：URL 清洗、合集标题、时间换算、快捷键匹配
+│   └── frameAnalyzer.ts       # 帧分析引擎（黑屏 / 静止画面检测）
+├── types/
+│   └── types.ts               # 类型定义（TimePoint / TimeRange / 配置 / 历史记录）
+├── modules/
+│   └── solid.ts               # 自定义 WXT 模块：接入 @solidjs/vite-plugin
+├── assets/
+│   └── css/app.css            # 样式入口（TailwindCSS 4 + DaisyUI）
+├── public/icon/               # active / inactive 两套扩展图标（16 ~ 128）
+├── wxt.config.ts              # WXT 配置（MV3、权限、Edge / Firefox 适配）
+├── tsconfig.json
+├── package.json
+└── bun.lock
 ```
 
 ### 数据流
@@ -192,7 +211,21 @@ flowchart LR
     CS -- DO_ARCHIVE 消息 --> BG
 ```
 
-- **配置存储**：`opRanges`、`frameConfig`、`jumpConfig`、`mode`、`isAutoHandle`、`isPageReady` 全部保存在 `storage.local`，任意端修改均通过 `storage.onChanged` 实时同步到内容脚本
+**配置存储**
+
+| 键名 | 类型 | 说明 |
+| --- | --- | --- |
+| `opRanges` | `TimeRange[]` | 多区间 OP / 中插跳过列表（`id` + `start` / `end`） |
+| `frameConfig` | `TimePoint` | 帧分析模式的检测起点 |
+| `jumpConfig` | `TimePoint` | 手动切集模式的切集时间点 |
+| `mode` | `"frame" \| "manual"` | 当前切集模式 |
+| `isAutoHandle` | `boolean` | 合集自动处理总开关 |
+| `isPageReady` | `boolean` | 当前页是否已就绪（内容脚本 / 后台写入） |
+| `shortcut` | `string` | 自定义跳转快捷键，空字符串表示未设置 |
+
+- 默认值集中定义在 [`hooks/useStorageConfig.ts`](./hooks/useStorageConfig.ts) 的 `INITIAL_CONFIG`，`STORAGE_KEYS` 由它自动派生
+- `useConfig(keys)` 返回只读响应式 `config` 与 `update()`，各端只读写自己用到的键
+- 每个上下文（Popup / Options / Content / Background）各持一份模块级 `createStore` 实例；写入 `storage.local` 后，再通过 `storage.onChanged` 把新值同步到其他上下文，内容脚本无需刷新即可生效
 - **历史记录**：`latestHistory`（自动，20 条）、`pinnedHistory`（手动，20 条）
 
 ---

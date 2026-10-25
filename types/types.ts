@@ -3,6 +3,7 @@ interface Config {
     frameConfig: TimePoint; // 帧分析点
     jumpConfig: TimePoint; // 手动切集点
     mode: "frame" | "manual"; // 当前模式
+    shortcut: string;
 }
 
 export interface BiliVideoConfig extends Config {

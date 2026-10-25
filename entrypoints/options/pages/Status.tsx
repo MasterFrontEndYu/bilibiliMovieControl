@@ -1,5 +1,5 @@
 import { BellDot } from "@lucide/solid";
-import { createSignal, flush, onSettled } from "solid-js";
+import { createSignal, onSettled } from "solid-js";
 import { browser } from "wxt/browser";
 
 export default function Home() {

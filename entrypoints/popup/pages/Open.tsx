@@ -4,7 +4,7 @@ import { TimeInput } from "@/components/TimeInput";
 import type { TimeRange } from "@/types/types";
 import { formatTime } from "@/utils/bilibili";
 import { useConfig } from "@/hooks/useStorageConfig";
-import { CircleX, Clock, RotateCcw, SaveCheck } from "@lucide/solid";
+import { CircleX, Clock, RotateCcw, SaveCheck, Trash } from "@lucide/solid";
 import { useNavigate } from "@solidjs/router";
 
 // ⚠️ TimeRange 类型假设为 { id: string; start: TimeParts; end: TimeParts }
@@ -138,7 +138,7 @@ export default function Open() {
                                     }}
                                     class="btn btn-ghost btn-xs text-base-content/50"
                                 >
-                                    <Clock size={12}/>
+                                    <Trash size={12} />
                                 </button>
                             </div>
                         )}

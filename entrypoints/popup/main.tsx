@@ -14,7 +14,7 @@ if (root) {
             <Router >
                 {(props) => (
                     <>
-                        <Loading fallback={<main>Loading…</main>}> <Layout>{props.children}</Layout></Loading>
+                        <Loading fallback={<main><span class="loading loading-infinity loading-xs"></span></main>}> <Layout>{props.children}</Layout></Loading>
                     </>
                 )
                 }

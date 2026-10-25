@@ -4,25 +4,24 @@ import { OptionsFooter } from '@/components/OptionsFooter';
 
 
 import { getSoftName } from '@/utils/bilibili';
-import { BadgeAlert, BellDot, HouseHeart, RobotVacuum, ScanEye } from '@lucide/solid';
+import { BadgeAlert, BellDot, HouseHeart, Keyboard, RobotVacuum, ScanEye } from '@lucide/solid';
 
 const NAV_LINKS = [
   {
     to: "/", label: "功能讲解", icon: <HouseHeart size={12} />
-},
+  },
   {
     to: "/status", label: "状态设置", icon: <BellDot size={12} />
-},
+  },
+  {
+    to: "/shortcut", label: "快捷键设置", icon: <Keyboard size={12} />
+  },
   {
     to: "/history", label: "自动存档", icon: <RobotVacuum size={12} />
-},
+  },
   {
     to: "/manual", label: "手动存档", icon: <ScanEye size={12} />
-},
-  {
-    to: "/about", label: "插件说明", icon: <BadgeAlert size={12} />
-
- },
+  }
 ];
 
 export default function Layout(props: ParentProps) {

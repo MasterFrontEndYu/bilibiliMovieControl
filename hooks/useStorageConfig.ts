@@ -9,18 +9,20 @@ const INITIAL_CONFIG: BiliVideoConfig = {
     mode: "manual" as const,
     isAutoHandle: true,
     isPageReady: false,
+    shortcut: "",
 };
 
 export const STORAGE_KEYS = Object.keys(
     INITIAL_CONFIG,
 ) as (keyof BiliVideoConfig)[];
 
-// ---- 模块级全局 store（所有组件共享同一份） ----
+// ---- 模块级全局 store（每个上下文各有一份） ----
 const [globalConfig, setGlobalConfig] =
     createStore<BiliVideoConfig>(INITIAL_CONFIG);
 
 // 初始化只跑一次（幂等）
 let initPromise: Promise<void> | null = null;
+
 export const initGlobalConfig = () => {
     if (initPromise) return initPromise;
     initPromise = (async () => {
@@ -33,13 +35,25 @@ export const initGlobalConfig = () => {
     return initPromise;
 };
 
-// ---- 按 keys 返回的 hook ----
+// ⭐ 关键：跨上下文同步
+// popup / options / content / background 任意一处写 storage，
+// 其他上下文的 storage.onChanged 都会触发，把新值写回各自的 globalConfig
+browser.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    const patch: Partial<BiliVideoConfig> = {};
+    for (const k of STORAGE_KEYS) {
+        if (changes[k]) (patch as any)[k] = changes[k].newValue;
+    }
+    if (Object.keys(patch).length === 0) return;
+    setGlobalConfig((prev) => ({ ...prev, ...patch }));
+});
+
+// ---- 按 keys 返回的 hook（与之前完全一致） ----
 export function useConfig<K extends keyof BiliVideoConfig>(keys: K[]) {
     void initGlobalConfig();
 
     const keySet = new Set<K>(keys);
 
-    // 响应式代理视图：读 globalConfig，但类型上只暴露 keys 对应的字段
     const config = new Proxy({} as Pick<BiliVideoConfig, K>, {
         get(_, prop: string | symbol) {
             if (typeof prop !== "string" || !keySet.has(prop as K))
@@ -59,7 +73,6 @@ export function useConfig<K extends keyof BiliVideoConfig>(keys: K[]) {
         },
     });
 
-    // 只在 keys 范围内更新，防止误改未声明的字段
     const update = async (data: Partial<Pick<BiliVideoConfig, K>>) => {
         const sanitized: Partial<BiliVideoConfig> = {};
         for (const k of keys) {
