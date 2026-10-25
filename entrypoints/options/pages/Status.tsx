@@ -2,20 +2,34 @@ import { BellDot } from "@lucide/solid";
 import { createSignal, onSettled } from "solid-js";
 import { browser } from "wxt/browser";
 
-export default function Home() {
+export default function StatusPage() {
     const [status, setStatus] = createSignal<boolean>(true);
 
+    // 初始化加载
     onSettled(() => {
+        let alive = true;
         (async () => {
-            const res = await browser.storage.local.get({ isAutoHandle: true });
-            setStatus(res.isAutoHandle as boolean);
-        })()
+            try {
+                const res = await browser.storage.local.get({ isAutoHandle: true });
+                if (alive) setStatus(res.isAutoHandle as boolean);
+            } catch (err) {
+                console.error("[Status] 初始化读取失败:", (err as Error)?.cause ?? err);
+            }
+        })();
+        return () => {
+            alive = false;
+        };
     });
 
     const updateStatus = async () => {
         const newStatus = !status();
         setStatus(newStatus);
-        await browser.storage.local.set({ isAutoHandle: newStatus });
+        try {
+            await browser.storage.local.set({ isAutoHandle: newStatus });
+        } catch (err) {
+            console.error("[Status] 保存失败:", (err as Error)?.cause ?? err);
+            setStatus(!newStatus); // 回滚 UI
+        }
     };
 
     return (
@@ -37,7 +51,6 @@ export default function Home() {
             <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
                 <div class="card-body gap-3 p-6">
                     <h2 class="card-title text-base font-bold text-base-content flex items-center gap-2">
-                        {/* <LayoutDashboard /> */}
                         <span
                             class={`${status() ? "text-success" : "text-error"
                                 }`}
@@ -48,8 +61,8 @@ export default function Home() {
                     <div class="flex items-center">
                         <div
                             class={`aura  ${status()
-                                    ? "aura-rainbow duration-1000"
-                                    : "text-orange-600"
+                                ? "aura-rainbow duration-1000"
+                                : "text-orange-600"
                                 }`}
                         >
                             <button

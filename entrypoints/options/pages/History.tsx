@@ -1,37 +1,55 @@
 // entrypoints/options/pages/History.tsx
-import { createSignal, For, onSettled, Show } from 'solid-js';
-import { browser } from 'wxt/browser';
+import { createSignal, For, onSettled, Show } from "solid-js";
+import { browser } from "wxt/browser";
 
-import { MAX_HISTORY_LENGTH ,LATEST_HISTORY_LENGTH} from "@/utils/bilibili";
+import { MAX_HISTORY_LENGTH, LATEST_HISTORY_LENGTH } from "@/utils/bilibili";
 
-import type { HistoryConfig } from '@/types/types';
-import { RobotVacuum, ScanEye, Trash } from '@lucide/solid';
+import type { HistoryConfig } from "@/types/types";
+import { RobotVacuum, ScanEye, Trash } from "@lucide/solid";
 
 export default function HistoryPage() {
     const [historyList, setHistoryList] = createSignal<HistoryConfig[]>([]);
 
     // 初始化加载
     onSettled(() => {
+        let alive = true;
         (async () => {
-            const res = await browser.storage.local.get({ latestHistory: [] });
-            setHistoryList(res.latestHistory as HistoryConfig[]);
-        })()
+            try {
+                const res = await browser.storage.local.get({ latestHistory: [] });
+                if (alive) setHistoryList(res.latestHistory as HistoryConfig[]);
+            } catch (err) {
+                console.error("[History] 初始化读取失败:", (err as Error)?.cause ?? err);
+            }
+        })();
+        return () => {
+            alive = false;
+        };
     });
-
-    
 
     // 删除单条
     const deleteItem = async (url: string) => {
-        const updated = historyList().filter(item => item.url !== url);
+        const prev = historyList();
+        const updated = prev.filter(item => item.url !== url);
         setHistoryList(updated);
-        await browser.storage.local.set({ latestHistory: updated });
+        try {
+            await browser.storage.local.set({ latestHistory: updated });
+        } catch (err) {
+            console.error("[History] 删除保存失败:", (err as Error)?.cause ?? err);
+            setHistoryList(prev); // 回滚
+        }
     };
 
     // 清空所有
     const clearAll = async () => {
         if (confirm('确定要清空所有自动历史记录吗？')) {
+            const prev = historyList();
             setHistoryList([]);
-            await browser.storage.local.set({ latestHistory: [] });
+            try {
+                await browser.storage.local.set({ latestHistory: [] });
+            } catch (err) {
+                console.error("[History] 清空保存失败:", (err as Error)?.cause ?? err);
+                setHistoryList(prev); // 回滚
+            }
         }
     };
 
@@ -104,10 +122,9 @@ export default function HistoryPage() {
 
             {/* 底部提示 */}
             <div class="mt-8 p-4 bg-info/10 border border-info/20 rounded-xl flex gap-2.5 items-start">
-                {/* <Info size={18} class="text-info shrink-0 mt-0.5" /> */}
                 <p class="m-0 text-xs text-base-content/70 leading-relaxed">
                     <b>关于自动存档：</b> 插件会在后台检测到视频为“合集/列表”且符合读帧条件时自动创建此记录。
-                    Options 页面会保留最近的 { MAX_HISTORY_LENGTH } 条记录。
+                    Options 页面会保留最近的 {MAX_HISTORY_LENGTH} 条记录。
                     但popup页面只会显示最新的 {LATEST_HISTORY_LENGTH} 条记录
                 </p>
             </div>

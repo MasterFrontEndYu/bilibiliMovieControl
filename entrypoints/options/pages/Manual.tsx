@@ -1,36 +1,56 @@
-// entrypoints/options/pages/History.tsx
+// entrypoints/options/pages/Manual.tsx
 import { createSignal, For, onSettled, Show } from "solid-js";
 import { browser } from "wxt/browser";
 
-import { MAX_HISTORY_LENGTH ,PINNED_HISTORY_LENGTH} from "@/utils/bilibili";
+import { MAX_HISTORY_LENGTH, PINNED_HISTORY_LENGTH } from "@/utils/bilibili";
 
 // 定义和 Background/Popup 一致的接口
 import type { HistoryConfig } from "@/types/types";
 import { HandFist, ScanEye, Trash } from "@lucide/solid";
 
-export default function HistoryPage() {
+export default function ManualPage() {
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
 
     // 初始化加载
     onSettled(() => {
+        let alive = true;
         (async () => {
-            const res = await browser.storage.local.get({ pinnedHistory: [] });
-            setPinnedHistory(res.pinnedHistory as HistoryConfig[]);
-        })()
+            try {
+                const res = await browser.storage.local.get({ pinnedHistory: [] });
+                if (alive) setPinnedHistory(res.pinnedHistory as HistoryConfig[]);
+            } catch (err) {
+                console.error("[Manual] 初始化读取失败:", (err as Error)?.cause ?? err);
+            }
+        })();
+        return () => {
+            alive = false;
+        };
     });
 
     // 删除单条
     const deleteItem = async (url: string) => {
-        const updated = pinnedHistory().filter((item) => item.url !== url);
+        const prev = pinnedHistory();
+        const updated = prev.filter((item) => item.url !== url);
         setPinnedHistory(updated);
-        await browser.storage.local.set({ pinnedHistory: updated });
+        try {
+            await browser.storage.local.set({ pinnedHistory: updated });
+        } catch (err) {
+            console.error("[Manual] 删除保存失败:", (err as Error)?.cause ?? err);
+            setPinnedHistory(prev); // 回滚
+        }
     };
 
     // 清空所有
     const clearAll = async () => {
         if (confirm("确定要清空所有手动历史记录吗？")) {
+            const prev = pinnedHistory();
             setPinnedHistory([]);
-            await browser.storage.local.set({ pinnedHistory: [] });
+            try {
+                await browser.storage.local.set({ pinnedHistory: [] });
+            } catch (err) {
+                console.error("[Manual] 清空保存失败:", (err as Error)?.cause ?? err);
+                setPinnedHistory(prev); // 回滚
+            }
         }
     };
 
@@ -87,7 +107,7 @@ export default function HistoryPage() {
                                 >
                                     <ScanEye size={12} />
 
-                                     回看
+                                    回看
                                 </a>
                                 <button
                                     onClick={() => deleteItem(item.url)}

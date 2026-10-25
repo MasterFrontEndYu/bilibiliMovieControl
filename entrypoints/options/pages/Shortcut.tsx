@@ -81,12 +81,21 @@ export default function ShortcutPage() {
 
     // 初始化加载
     onSettled(() => {
+        let alive = true;
         (async () => {
-            const res = await browser.storage.local.get({ shortcut: "" });
-            const v = (res.shortcut as string) || "";
-            setShortcut(v);
-            setSavedShortcut(v);
+            try {
+                const res = await browser.storage.local.get({ shortcut: "" });
+                if (!alive) return;
+                const v = (res.shortcut as string) || "";
+                setShortcut(v);
+                setSavedShortcut(v);
+            } catch (err) {
+                console.error("[Shortcut] 初始化读取失败:", (err as Error)?.cause ?? err);
+            }
         })();
+        return () => {
+            alive = false;
+        };
     });
 
     const startRecording = () => {
@@ -152,17 +161,30 @@ export default function ShortcutPage() {
     });
 
     const save = async () => {
-        await browser.storage.local.set({ shortcut: shortcut() });
-        setSavedShortcut(shortcut());
-        setHint("已保存快捷键");
+        const next = shortcut();
+        try {
+            await browser.storage.local.set({ shortcut: next });
+            setSavedShortcut(next);
+            setHint("已保存快捷键");
+        } catch (err) {
+            console.error("[Shortcut] 保存失败:", (err as Error)?.cause ?? err);
+            setHint(`保存失败：${(err as Error)?.message ?? "未知错误"}`);
+        }
     };
 
     const reset = async () => {
         if (confirm("确定要清空快捷键吗？")) {
+            const prev = shortcut();
             setShortcut("");
-            await browser.storage.local.set({ shortcut: "" });
-            setSavedShortcut("");
-            setHint("已清空快捷键");
+            try {
+                await browser.storage.local.set({ shortcut: "" });
+                setSavedShortcut("");
+                setHint("已清空快捷键");
+            } catch (err) {
+                console.error("[Shortcut] 清空保存失败:", (err as Error)?.cause ?? err);
+                setShortcut(prev); // 回滚
+                setHint("清空失败，请重试");
+            }
         }
     };
 
