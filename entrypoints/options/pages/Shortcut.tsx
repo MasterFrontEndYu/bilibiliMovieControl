@@ -276,8 +276,11 @@ export default function ShortcutPage() {
                             onClick={() => (recording() ? cancelRecording() : startRecording())}
                             class={`btn ${recording() ? "btn-error" : "btn-primary"}`}
                         >
-                            <Show when={recording()} fallback={<><Keyboard size={16} /> 录入</>}>
-                                <CircleX size={16} /> 取消
+                            <Show when={recording()} fallback={
+                                <Keyboard size={16} />
+                                }>
+                                <CircleX size={16} /> 
+                                取消
                             </Show>
                         </button>
 
@@ -286,7 +289,8 @@ export default function ShortcutPage() {
                             class="btn btn-ghost btn-error"
                             disabled={!shortcut() && !savedShortcut()}
                         >
-                            <RotateCcw size={16} /> 清空
+                            <RotateCcw size={16} /> 
+                            清空
                         </button>
 
                         <button
@@ -294,14 +298,16 @@ export default function ShortcutPage() {
                             class="btn btn-soft btn-success"
                             disabled={!shortcut() || !isDirty()}
                         >
-                            <Save size={16} /> 保存
+                            <Save size={16} /> 
+                            保存
                         </button>
                     </div>
 
                     {/* 推荐键快速填入 */}
                     <div class="flex items-center gap-2 flex-wrap">
                         <span class="text-sm text-base-content/60 flex items-center gap-1">
-                            <Sparkles size={14} class="text-warning" /> 推荐键：
+                            <Sparkles size={14} class="text-warning" /> 
+                            推荐键：
                         </span>
                         <For each={RECOMMENDED_KEYS}>
                             {(item) => (

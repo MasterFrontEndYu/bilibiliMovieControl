@@ -96,7 +96,6 @@ export default function HistoryPage() {
                                     class="btn btn-primary btn-sm"
                                 >
                                     <ScanEye size={12} />
-
                                     回看
                                 </a>
                                 <button

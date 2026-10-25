@@ -19,7 +19,6 @@ export default function Home() {
 
             <div class="bg-primary/5 border border-primary/20 p-5 rounded-xl mb-8 flex gap-4 items-start">
                 <Info size={12}/>
-
                 <div>
                     <strong class="text-primary text-base">适用范围说明</strong>
                     <p class="mt-1 m-0 text-base-content/70 text-sm">

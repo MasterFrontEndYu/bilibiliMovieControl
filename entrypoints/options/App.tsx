@@ -4,7 +4,7 @@ import { OptionsFooter } from '@/components/OptionsFooter';
 
 
 import { getSoftName } from '@/utils/bilibili';
-import { BadgeAlert, BellDot, HouseHeart, Keyboard, RobotVacuum, ScanEye } from '@lucide/solid';
+import { BellDot, HouseHeart, Keyboard, RobotVacuum, ScanEye } from '@lucide/solid';
 
 const NAV_LINKS = [
   {
