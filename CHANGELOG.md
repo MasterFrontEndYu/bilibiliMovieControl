@@ -1,5 +1,19 @@
 # B 站连播助手 (Bilibili Movie Control)
 
+## 1.3.4
+
+### Patch Changes
+
+- ## 功能优化
+ - 更新solidjs 2.0rc 版本，等不及了，用modules桥接新版本。
+ - icon使用对应的rc版本 @lucide/solid
+ - 优化了 hook,使用统一配置。
+ - 添加了快捷键功能
+
+  ## 页面优化
+  - 快捷键录入页面添加。
+  - popup 页面也使用路由分开页面，效果还是意志的
+
 ## 1.3.3
 
 ### Patch Changes
