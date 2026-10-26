@@ -137,7 +137,7 @@ export default function Index() {
                 </button>
             </div>
 
-            <div class="divider m-0">设置多OP跳转</div>
+            <div class="divider m-0">设置多OP跳转5</div>
             <button
                 class="btn btn-dash btn-warning btn-sm btn-block"
                 onClick={openTimeRangePage}
