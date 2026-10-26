@@ -9,7 +9,7 @@ export default defineConfig({
     webExt: {
         binaries: {
             edge: "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-            firefox: 'firefoxdeveloperedition',
+            firefox: "firefoxdeveloperedition",
         },
     },
     manifest: {

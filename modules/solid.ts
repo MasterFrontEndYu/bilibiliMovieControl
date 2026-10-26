@@ -11,10 +11,7 @@ export default defineWxtModule<SolidModuleOptions>({
     addViteConfig(wxt, () => ({
       plugins: [solid(vite)],
       build: {
-        target: "esnext",
-        rollupOptions: {
-          treeshake: false, // 仅用于诊断或临时应急
-        },
+        target: "esnext"
       },
     }));
 

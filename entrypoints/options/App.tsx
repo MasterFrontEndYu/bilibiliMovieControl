@@ -6,21 +6,24 @@ import { OptionsFooter } from '@/components/OptionsFooter';
 import { getSoftName } from '@/utils/bilibili';
 import { BellDot, HouseHeart, Keyboard, RobotVacuum, ScanEye } from '@lucide/solid';
 
+// 注意：这里只能存图标组件本身，不能在模块顶层直接写 <HouseHeart size={12} />。
+// 模块顶层没有 reactive owner，生产构建里 createComponent 只是 untrack 执行，
+// 图标内部的 useContext 会抛 NoOwnerError（dev 下 createComponent 会包一层 root，所以只有打包后才报错）。
 const NAV_LINKS = [
   {
-    to: "/", label: "功能讲解", icon: <HouseHeart size={12} />
+    to: "/", label: "功能讲解", icon: HouseHeart
   },
   {
-    to: "/status", label: "状态设置", icon: <BellDot size={12} />
+    to: "/status", label: "状态设置", icon: BellDot
   },
   {
-    to: "/shortcut", label: "快捷键设置", icon: <Keyboard size={12} />
+    to: "/shortcut", label: "快捷键设置", icon: Keyboard
   },
   {
-    to: "/history", label: "自动存档", icon: <RobotVacuum size={12} />
+    to: "/history", label: "自动存档", icon: RobotVacuum
   },
   {
-    to: "/manual", label: "手动存档", icon: <ScanEye size={12} />
+    to: "/manual", label: "手动存档", icon: ScanEye
   }
 ];
 
@@ -48,19 +51,22 @@ export default function Layout(props: ParentProps) {
         <div>
           <h2 class="text-primary text-lg mb-5 font-bold">{getSoftName()}设置</h2>
 
-          {NAV_LINKS.map((link) => (
-            <a
-              href={link.to}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(link.to);
-              }}
-              class={`flex items-center gap-2.5 px-3 py-3 no-underline text-base-content/70 rounded-lg transition-all duration-200 hover:bg-primary/5${loc.pathname === link.to ? " active-link" : ""}`}
-            >
-              {link.icon}
-              {link.label}
-            </a>
-          ))}
+          {NAV_LINKS.map((link) => {
+            const Icon = link.icon;
+            return (
+              <a
+                href={link.to}
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigate(link.to);
+                }}
+                class={`flex items-center gap-2.5 px-3 py-3 no-underline text-base-content/70 rounded-lg transition-all duration-200 hover:bg-primary/5${loc.pathname === link.to ? " active-link" : ""}`}
+              >
+                <Icon size={12} />
+                {link.label}
+              </a>
+            );
+          })}
         </div>
       </nav>
 
