@@ -101,7 +101,7 @@ export default function Open() {
     };
 
     return (
-        <div class="card bg-base-100 rounded-box flex flex-col w-full h-full">
+        <div class="card rounded-box flex flex-col w-full h-full">
             {/* 1. 顶部列表 */}
             <div class="text-center text-lg font-bold text-primary leading-9">
                 设置OP跳转时间段
@@ -114,7 +114,7 @@ export default function Open() {
                     <For
                         each={config.opRanges}
                         fallback={
-                            <div class="m-auto text-base-content/30 text-xs">
+                            <div class="m-auto pl-1 text-base-content/30 text-xs">
                                 暂无跳过时段
                             </div>
                         }
