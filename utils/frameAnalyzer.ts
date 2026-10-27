@@ -143,9 +143,9 @@ function analyzeFrame(video: HTMLVideoElement): {
         const isInitial = !isBufferValid;
 
         for (let i = 0; i < data.length; i += step * 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
+            const r = data[i] ?? 0;
+            const g = data[i + 1] ?? 0;
+            const b = data[i + 2] ?? 0;
 
             // 1. 亮度累加
             totalLuminance += 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -153,10 +153,13 @@ function analyzeFrame(video: HTMLVideoElement): {
 
             // 2. 静态对比（仅当有有效参考帧）
             if (!isInitial) {
+                const prevR = previousBuffer[i] ?? 0;
+                const prevG = previousBuffer[i + 1] ?? 0;
+                const prevB = previousBuffer[i + 2] ?? 0;
                 const diff =
-                    Math.abs(r - previousBuffer[i]) +
-                    Math.abs(g - previousBuffer[i + 1]) +
-                    Math.abs(b - previousBuffer[i + 2]);
+                    Math.abs(r - prevR) +
+                    Math.abs(g - prevG) +
+                    Math.abs(b - prevB);
                 // 平均通道差异
                 if (diff / 3 > diffThreshold) {
                     diffPixels++;

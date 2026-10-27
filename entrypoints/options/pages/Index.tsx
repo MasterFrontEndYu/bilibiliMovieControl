@@ -1,6 +1,5 @@
-import { Info, CircleAlert } from "lucide-solid";
-
 import { MAX_HISTORY_LENGTH ,PINNED_HISTORY_LENGTH,LATEST_HISTORY_LENGTH} from "@/utils/bilibili";
+import { HouseHeart, Info } from "@lucide/solid";
 
 export default function Home() {
     return (
@@ -9,7 +8,8 @@ export default function Home() {
             <header class="flex justify-between items-center mb-10">
                 <div>
                     <h1 class="text-3xl mb-3 text-primary flex items-center gap-3">
-                        <Info size={36} /> 功能讲解
+                        <HouseHeart size={26} />
+                        功能讲解
                     </h1>
                     <p class="text-base-content/70 text-base leading-relaxed">
                         此插件的基本功能解释 —— 助你高效跳过片头与片尾
@@ -18,7 +18,7 @@ export default function Home() {
             </header>
 
             <div class="bg-primary/5 border border-primary/20 p-5 rounded-xl mb-8 flex gap-4 items-start">
-                <CircleAlert class="text-primary shrink-0 mt-0.5" size={24} />
+                <Info size={12}/>
                 <div>
                     <strong class="text-primary text-base">适用范围说明</strong>
                     <p class="mt-1 m-0 text-base-content/70 text-sm">

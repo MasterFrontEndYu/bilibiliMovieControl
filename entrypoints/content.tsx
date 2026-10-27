@@ -1,5 +1,5 @@
 // content/index.ts
-import { render } from "solid-js/web";
+import { render } from "@solidjs/web";
 import { createSignal } from "solid-js";
 import { browser } from "wxt/browser";
 import {
@@ -10,14 +10,14 @@ import {
     destroyFrameAnalyzer,
 } from "../utils/frameAnalyzer";
 import {
-    createStorageListener,
     formatTime,
     toSeconds,
     TARGET_ID,
     BTN_CLASS,
+    matchShortcut,
+    isEditableTarget,
 } from "@/utils/bilibili";
-import type { BiliVideoConfig } from "@/types/types";
-import { STORAGE_KEYS } from "@/hooks/useStorageConfig";
+import { useConfig, initGlobalConfig } from "@/hooks/useStorageConfig";
 import { VideoUI } from "@/components/VideoUI";
 
 export default defineContentScript({
@@ -25,17 +25,18 @@ export default defineContentScript({
     cssInjectionMode: "manual",
 
     async main(ctx) {
-        // ---------- 1. 配置管理 ----------
-        const { config, setConfig, initFromStorage } = useStorageConfig();
+        // ---------- 1. 配置管理（shortcut 一起交给 useConfig 同步） ----------
+        const { config } = useConfig([
+            "opRanges",
+            "jumpConfig",
+            "frameConfig",
+            "mode",
+            "isAutoHandle",
+            "shortcut",
+        ]);
         const [isAnalyzing, setIsAnalyzing] = createSignal(false);
 
-        await initFromStorage();
-
-        const storageListener = createStorageListener(
-            STORAGE_KEYS,
-            (data: Partial<BiliVideoConfig>) => setConfig(data),
-        );
-        browser.storage.onChanged.addListener(storageListener);
+        await initGlobalConfig();
 
         // ---------- 2. 工具函数：等待元素出现 ----------
         const waitForElement = (selector: string, timeout = 10000) =>
@@ -107,7 +108,31 @@ export default defineContentScript({
             }
         };
 
-        // ---------- 5. 核心控制逻辑（保持不变） ----------
+        // ---------- 5. 快捷键监听（读 config.shortcut，自动同步） ----------
+        ctx.addEventListener(
+            window,
+            "keydown",
+            (event) => {
+                // 输入法组合中不处理，避免拼音阶段误触
+                if (event.isComposing) return;
+
+                const sc = config.shortcut;
+                if (!sc) return;
+
+                // 焦点在搜索框 / 弹幕框 / 评论框等可编辑区域时不触发
+                if (isEditableTarget(event.target)) return;
+
+                // 只匹配用户保存的那一个快捷键
+                if (!matchShortcut(event, sc)) return;
+
+                event.preventDefault();
+                event.stopPropagation();
+                executeJump();
+            },
+            { capture: true },
+        );
+
+        // ---------- 6. 核心控制逻辑 ----------
         let lastFrameCheckTime = 0;
         const FRAME_CHECK_INTERVAL = 200;
 
@@ -125,7 +150,6 @@ export default defineContentScript({
                     return;
                 }
             }
-
             // 切集
             if (config.mode === "manual") {
                 const jumpTime = toSeconds(config.jumpConfig);
@@ -146,7 +170,7 @@ export default defineContentScript({
                                 setIsAnalyzing(false);
                             }
                         } catch (e) {
-                            lastFrameCheckTime = 0; // 异常后恢复
+                            lastFrameCheckTime = 0;
                             console.warn("[Frame Analyze] 异常:", e);
                         }
                     }
@@ -156,7 +180,7 @@ export default defineContentScript({
             }
         };
 
-        // ---------- 6. 主循环（频率提高到 200ms） ----------
+        // ---------- 7. 主循环 ----------
         let lastPageState = false;
         const mainLoop = async () => {
             try {
@@ -180,7 +204,7 @@ export default defineContentScript({
             }
         };
 
-        // ---------- 7. 事件监听（合并 + 清理） ----------
+        // ---------- 8. 事件监听 ----------
         const messageListener = (msg: any, sender: any, sendResponse: any) => {
             if (msg.type === "PING") {
                 sendResponse({ alive: lastPageState });
@@ -206,17 +230,14 @@ export default defineContentScript({
             locationChangeHandler,
         );
 
-        // ---------- 8. 启动 ----------
-        // 等待目标元素出现（替代硬延迟）
+        // ---------- 9. 启动 ----------
         await waitForElement(TARGET_ID);
         initFrameAnalyzer();
 
-        // 主循环定时器（200ms，使帧检测节流生效）
         const mainInterval = ctx.setInterval(mainLoop, 200);
 
-        // ---------- 9. 清理 ----------
+        // ---------- 10. 清理 ----------
         ctx.onInvalidated(() => {
-            browser.storage.onChanged.removeListener(storageListener);
             browser.runtime.onMessage.removeListener(messageListener);
             window.removeEventListener(
                 "wxt:locationchange",

@@ -1,5 +1,5 @@
-import { Component, For } from 'solid-js';
-import { HistoryConfig, HistoryListConfig } from '@/types/types';
+import { type Component, For } from 'solid-js';
+import type { HistoryConfig, HistoryListConfig } from '@/types/types';
 
 export const HistoryList: Component<HistoryListConfig> = (props) => {
     const loadHistory = async (item: HistoryConfig) => {
