@@ -108,6 +108,21 @@ export default function Home() {
                 </div>
             </div>
 
+            <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
+                <div class="card-body gap-3 p-6">
+                    <h2 class="card-title text-base font-bold text-base-content flex items-center gap-2">
+                        <span class="text-accent">⌨</span> 快捷键设置
+                    </h2>
+                    <div class="">
+                        <div class="bg-base-200/60 rounded-xl p-4">
+                            <p class="text-sm text-base-content/60 mt-1">
+                                用户可以自定义非系统、浏览器、B 站自带的以外的快捷键，方面使用。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* ===== 其他功能：保存记录 ===== */}
             <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
                 <div class="card-body gap-3 p-6">
