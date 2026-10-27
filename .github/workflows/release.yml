@@ -37,7 +37,8 @@ jobs:
         uses: changesets/action@v1
         with:
           # 它会自动检查版本。如果本地 package.json 版本没变，它什么都不会执行。
-          publish: bun run release
+          publish: bun run release 
+          createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FIREFOX_EXTENSION_ID: ${{ secrets.AMO_EXTENSION_ID }}
