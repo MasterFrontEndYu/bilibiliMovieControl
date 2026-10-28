@@ -14,14 +14,21 @@ interface AnalyzerConfig {
     staticFrameRequired: number; // 触发所需的连续静态帧数
 }
 
+/**
+ * ⚠️ 检测频率由调用方决定。
+ * content.tsx 中 FRAME_CHECK_INTERVAL = 200ms（5Hz），因此：
+ *   blackFrameRequired: 15  ≈ 3 秒
+ *   staticFrameRequired: 40 ≈ 8 秒
+ * 若调整了 FRAME_CHECK_INTERVAL，这两个值必须同步调整。
+ */
 const DEFAULT_CONFIG: AnalyzerConfig = {
     sampleWidth: 200,
     sampleHeight: 200,
     blackLuminanceThreshold: 30,
     staticPixelDiffThreshold: 15,
     staticDiffRatioThreshold: 0.05,
-    blackFrameRequired: 3, // 约 3 秒
-    staticFrameRequired: 8, // 约 8 秒
+    blackFrameRequired: 15, // 15 × 200ms ≈ 3 秒
+    staticFrameRequired: 40, // 40 × 200ms ≈ 8 秒
 };
 
 // 内部全局状态
@@ -32,6 +39,13 @@ let isBufferValid = false; // 是否有有效的参考帧
 
 let blackFrameCount = 0;
 let staticFrameCount = 0;
+
+// 跨域污染等异常的处理：连续失败到阈值后禁用当前视频的分析，避免反复刷屏
+let consecutiveErrors = 0;
+let analysisDisabled = false;
+let lastErrWarnTime = 0;
+const MAX_CONSECUTIVE_ERRORS = 10;
+const ERROR_WARN_INTERVAL = 10000; // 10 秒内最多 warn 一次
 
 let currentConfig: AnalyzerConfig = { ...DEFAULT_CONFIG };
 
@@ -94,6 +108,9 @@ export function resetFrameAnalyzer(): void {
     staticFrameCount = 0;
     // 触发后重置标记，让静态检测从下一帧重新建立参考
     isBufferValid = false;
+    // 重置异常状态，允许重新尝试分析（例如切换视频后）
+    consecutiveErrors = 0;
+    analysisDisabled = false;
     // 不清零 previousBuffer，但下次会覆盖
 }
 
@@ -109,60 +126,56 @@ function analyzeFrame(video: HTMLVideoElement): {
     }
 
     try {
-        // 绘制视频到 canvas
-        frameCtx.drawImage(
-            video,
-            0,
-            0,
-            currentConfig.sampleWidth,
-            currentConfig.sampleHeight,
-        );
+        const { sampleWidth, sampleHeight } = currentConfig;
+
+        // 绘制视频到 canvas（等比拉伸到采样尺寸，对黑屏/静态判定无影响）
+        frameCtx.drawImage(video, 0, 0, sampleWidth, sampleHeight);
         const imageData = frameCtx.getImageData(
             0,
             0,
-            currentConfig.sampleWidth,
-            currentConfig.sampleHeight,
+            sampleWidth,
+            sampleHeight,
         );
         const data = imageData.data;
-        const totalPixels = data.length / 4;
+        const totalPixels = sampleWidth * sampleHeight;
 
-        // 动态计算采样步长，使采样点数大约为 2000 个，但限制最大步长 8
+        // 采样步长：目标约 2000 个采样点，限制最大步长 8
         const targetSamples = 2000;
-        let step = Math.max(
+        const step = Math.max(
             1,
-            Math.floor(Math.sqrt(totalPixels / targetSamples)),
+            Math.min(8, Math.floor(Math.sqrt(totalPixels / targetSamples))),
         );
-        step = Math.min(step, 8); // 防止采样过疏
 
-        // 合并循环：同时计算平均亮度和静态差异
         let totalLuminance = 0;
         let sampledPixels = 0;
         let diffPixels = 0;
         const diffThreshold = currentConfig.staticPixelDiffThreshold;
-
         const isInitial = !isBufferValid;
 
-        for (let i = 0; i < data.length; i += step * 4) {
-            const r = data[i] ?? 0;
-            const g = data[i + 1] ?? 0;
-            const b = data[i + 2] ?? 0;
+        // 按网格采样，保证采样点分布均匀（原扁平跳步会呈斜线分布，某些区域永远采不到）
+        for (let y = 0; y < sampleHeight; y += step) {
+            for (let x = 0; x < sampleWidth; x += step) {
+                const i = (y * sampleWidth + x) * 4;
+                const r = data[i] ?? 0;
+                const g = data[i + 1] ?? 0;
+                const b = data[i + 2] ?? 0;
 
-            // 1. 亮度累加
-            totalLuminance += 0.2126 * r + 0.7152 * g + 0.0722 * b;
-            sampledPixels++;
+                // 1. 亮度累加
+                totalLuminance += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                sampledPixels++;
 
-            // 2. 静态对比（仅当有有效参考帧）
-            if (!isInitial) {
-                const prevR = previousBuffer[i] ?? 0;
-                const prevG = previousBuffer[i + 1] ?? 0;
-                const prevB = previousBuffer[i + 2] ?? 0;
-                const diff =
-                    Math.abs(r - prevR) +
-                    Math.abs(g - prevG) +
-                    Math.abs(b - prevB);
-                // 平均通道差异
-                if (diff / 3 > diffThreshold) {
-                    diffPixels++;
+                // 2. 静态对比（仅当有有效参考帧）
+                if (!isInitial) {
+                    const prevR = previousBuffer![i] ?? 0;
+                    const prevG = previousBuffer![i + 1] ?? 0;
+                    const prevB = previousBuffer![i + 2] ?? 0;
+                    const diff =
+                        Math.abs(r - prevR) +
+                        Math.abs(g - prevG) +
+                        Math.abs(b - prevB);
+                    if (diff / 3 > diffThreshold) {
+                        diffPixels++;
+                    }
                 }
             }
         }
@@ -181,12 +194,23 @@ function analyzeFrame(video: HTMLVideoElement): {
         // 更新缓冲区并标记有效
         previousBuffer.set(data);
         isBufferValid = true;
+        consecutiveErrors = 0; // 成功一次就清零连续错误计数
 
         return { black, static: staticFlag };
     } catch (e) {
-        console.warn("[FrameAnalyzer] 分析帧异常:", e);
-        // 异常时重置有效性标记，避免基于错误帧的后续检测
         isBufferValid = false;
+        consecutiveErrors++;
+
+        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS && !analysisDisabled) {
+            analysisDisabled = true;
+            console.warn(
+                `[FrameAnalyzer] 连续 ${MAX_CONSECUTIVE_ERRORS} 次分析失败，当前视频帧分析已禁用，切换视频后恢复`,
+            );
+        } else if (Date.now() - lastErrWarnTime > ERROR_WARN_INTERVAL) {
+            lastErrWarnTime = Date.now();
+            console.warn("[FrameAnalyzer] 分析帧异常:", e);
+        }
+
         return { black: false, static: false };
     }
 }
@@ -194,16 +218,20 @@ function analyzeFrame(video: HTMLVideoElement): {
 /**
  * 核心判定函数：受控于 Content Script 的时间逻辑
  * @param video 视频元素
- * @param isPlaying 播放状态
  */
-export function checkEndingByFrame(
-    video: HTMLVideoElement,
-    isPlaying: boolean,
-): boolean {
-    // 1. 基础守卫
-    if (!video || video.paused || !isPlaying) return false;
+export function checkEndingByFrame(video: HTMLVideoElement): boolean {
+    // 当前视频因连续异常被禁用
+    if (analysisDisabled) return false;
+
+    // 1. 基础守卫：暂停时清零计数，避免暂停期间静止画面继续累计
+    if (!video || video.paused) {
+        blackFrameCount = 0;
+        staticFrameCount = 0;
+        return false;
+    }
+    // 画中画或未就绪：只清静态计数（黑屏需要连续帧累积，不应被短暂波动重置）
     if (isPictureInPictureActive() || video.readyState < 2) {
-        // 画中画或未就绪时不分析，但保持状态（不重置计数器）
+        staticFrameCount = 0;
         return false;
     }
 
@@ -231,13 +259,14 @@ export function checkEndingByFrame(
 
 /**
  * 运行时动态更新算法敏感度（若尺寸改变则重建 canvas）
+ * 注意：当前 content.tsx 未调用此函数，AnalyzerConfig 全部使用默认值。
+ * 若将来要在设置页开放"敏感度"，从这里接入。
  */
 export function updateAnalyzerConfig(config: Partial<AnalyzerConfig>): void {
     const oldWidth = currentConfig.sampleWidth;
     const oldHeight = currentConfig.sampleHeight;
     currentConfig = { ...currentConfig, ...config };
 
-    // 如果尺寸变化，需要重新初始化
     if (
         oldWidth !== currentConfig.sampleWidth ||
         oldHeight !== currentConfig.sampleHeight

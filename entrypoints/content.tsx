@@ -134,6 +134,8 @@ export default defineContentScript({
 
         // ---------- 6. 核心控制逻辑 ----------
         let lastFrameCheckTime = 0;
+        // ⚠️ 与 frameAnalyzer.ts 的 blackFrameRequired / staticFrameRequired 联动：
+        // 200ms × 15 = 3s，200ms × 40 = 8s。改这里必须同步改阈值。
         const FRAME_CHECK_INTERVAL = 200;
 
         const runControlLogic = () => {
@@ -159,13 +161,14 @@ export default defineContentScript({
                 }
             } else {
                 const analyzeStartTime = toSeconds(config.frameConfig);
+                // 注意：analyzeStartTime > 0 表示"0 秒视为不开启"，与设置页语义需一致
                 if (analyzeStartTime > 0 && cur >= analyzeStartTime) {
                     if (!isAnalyzing()) setIsAnalyzing(true);
                     const now = Date.now();
                     if (now - lastFrameCheckTime >= FRAME_CHECK_INTERVAL) {
                         lastFrameCheckTime = now;
                         try {
-                            if (checkEndingByFrame(video, !video.paused)) {
+                            if (checkEndingByFrame(video)) {
                                 executeJump();
                                 setIsAnalyzing(false);
                             }
@@ -224,28 +227,22 @@ export default defineContentScript({
             setIsAnalyzing(false);
             lastFrameCheckTime = 0;
         };
-        ctx.addEventListener(
-            window,
-            "wxt:locationchange",
-            locationChangeHandler,
-        );
+        ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
         // ---------- 9. 启动 ----------
         await waitForElement(TARGET_ID);
         initFrameAnalyzer();
 
-        const mainInterval = ctx.setInterval(mainLoop, 200);
+        ctx.setInterval(mainLoop, 200);
 
         // ---------- 10. 清理 ----------
+        // ctx.addEventListener / ctx.setInterval 由 WXT 在失效时自动清理，
+        // 手动再 removeEventListener / clearInterval 会因为引用被包装而失效，徒增困惑。
+        // 只有非 ctx 注册的 browser.runtime.onMessage 需要手动移除。
         ctx.onInvalidated(() => {
             browser.runtime.onMessage.removeListener(messageListener);
-            window.removeEventListener(
-                "wxt:locationchange",
-                locationChangeHandler,
-            );
             updateUi(false);
             destroyFrameAnalyzer();
-            clearInterval(mainInterval);
         });
     },
 });
