@@ -8,7 +8,7 @@ export const HistoryList: Component<HistoryListConfig> = (props) => {
     };
 
     const openOptions = (isPinned: boolean) => {
-        browser.tabs.create({ url: browser.runtime.getURL(`/options.html?target=${isPinned ? "manual" : "history"}`) });
+        browser.tabs.create({ url: browser.runtime.getURL(`/options.html#/${isPinned ? "manual" : "history"}`) });
     };
 
     const prefix = () => (props.isPinned ? '📌 ' : '🕒 ');

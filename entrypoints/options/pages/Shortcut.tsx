@@ -215,7 +215,7 @@ export default function ShortcutPage() {
 
             {/* ===== 原生功能说明 ===== */}
             <div class="bg-primary/5 border border-primary/20 p-5 rounded-xl mb-8 flex gap-4 items-start">
-                <Info size={16} class="text-primary shrink-0 mt-0.5" />
+                <Info size={16} class="text-primary shrink-0 mt-1" />
                 <div>
                     <strong class="text-primary text-base">B 站其实自带下一P快捷键</strong>
                     <p class="mt-1 m-0 text-base-content/70 text-sm leading-relaxed">

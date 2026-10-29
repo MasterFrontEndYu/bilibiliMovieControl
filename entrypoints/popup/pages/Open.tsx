@@ -155,34 +155,14 @@ export default function Open() {
 
                 <TimeInput
                     label="从"
-                    hour={currentStart().h}
-                    minute={currentStart().m}
-                    second={currentStart().s}
-                    onHourChange={(v) =>
-                        setCurrentStart({ ...currentStart(), h: v })
-                    }
-                    onMinuteChange={(v) =>
-                        setCurrentStart({ ...currentStart(), m: v })
-                    }
-                    onSecondChange={(v) =>
-                        setCurrentStart({ ...currentStart(), s: v })
-                    }
+                    value={currentStart()}
+                    onChange={(next) => setCurrentStart(next)}
                 />
 
                 <TimeInput
                     label="至"
-                    hour={currentEnd().h}
-                    minute={currentEnd().m}
-                    second={currentEnd().s}
-                    onHourChange={(v) =>
-                        setCurrentEnd({ ...currentEnd(), h: v })
-                    }
-                    onMinuteChange={(v) =>
-                        setCurrentEnd({ ...currentEnd(), m: v })
-                    }
-                    onSecondChange={(v) =>
-                        setCurrentEnd({ ...currentEnd(), s: v })
-                    }
+                    value={currentEnd()}
+                    onChange={(next) => setCurrentEnd(next)}
                 />
             </div>
 

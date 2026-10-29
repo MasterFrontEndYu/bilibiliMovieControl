@@ -107,27 +107,28 @@ export default function Index() {
     return (
         <>
             <div class="flex items-center justify-between">
-                <div class="flex items-center flex-1 font-bold">
-                    <h1 class="flex flex-1 text-lg align-center">
-                        {getSoftName()}
-                    </h1>
-                    <span
-                        class={`badge badge-xs mr-4 items-center ${config.isPageReady ? "badge-success" : "badge-ghost"
-                            }`}
+                <h1 class="text-base align-center font-bold">
+                    {getSoftName()}
+                </h1>
+                <span
+                    class={`badge badge-xs badge-soft items-center ${config.isPageReady ? "badge-success" : "badge-ghost"}`}
+                >
+                    <Show
+                        when={config.isPageReady}
+                        fallback={
+                            <>
+                                <span class="status"></span>
+                                未启动
+                            </>
+                        }
                     >
-                        <Show when={config.isPageReady}>
-                            <div class="inline-grid *:[grid-area:1/1]">
-                                <div class="status status-error animate-ping"></div>
-                                <div class="status status-error"></div>
-                            </div>
-                        </Show>
-                        <Show when={!config.isPageReady}>
-                            <span class="status"></span>
-                        </Show>
-                        {config.isPageReady ? "已就绪" : "未启动"}
-                    </span>
-                </div>
-
+                        <div class="inline-grid *:[grid-area:1/1]">
+                            <div class="status status-success animate-ping"></div>
+                            <div class="status status-success"></div>
+                        </div>
+                        已就绪
+                    </Show>
+                </span>
                 <button
                     class=" btn btn-outline btn-primary btn-xs"
                     onClick={openOptions}
@@ -172,66 +173,16 @@ export default function Index() {
                 <Switch>
                     <Match when={config.mode === "frame"}>
                         <TimeInput
-                            label="帧"
-                            hour={config.frameConfig.h}
-                            minute={config.frameConfig.m}
-                            second={config.frameConfig.s}
-                            onHourChange={(val) =>
-                                update({
-                                    frameConfig: {
-                                        ...config.frameConfig,
-                                        h: val,
-                                    },
-                                })
-                            }
-                            onMinuteChange={(val) =>
-                                update({
-                                    frameConfig: {
-                                        ...config.frameConfig,
-                                        m: val,
-                                    },
-                                })
-                            }
-                            onSecondChange={(val) =>
-                                update({
-                                    frameConfig: {
-                                        ...config.frameConfig,
-                                        s: val,
-                                    },
-                                })
-                            }
+                            label="帧分析"
+                            value={config.frameConfig}
+                            onChange={(next) => update({ frameConfig: next })}
                         />
                     </Match>
                     <Match when={config.mode === "manual"}>
                         <TimeInput
-                            label="切"
-                            hour={config.jumpConfig.h}
-                            minute={config.jumpConfig.m}
-                            second={config.jumpConfig.s}
-                            onHourChange={(val) =>
-                                update({
-                                    jumpConfig: {
-                                        ...config.jumpConfig,
-                                        h: val,
-                                    },
-                                })
-                            }
-                            onMinuteChange={(val) =>
-                                update({
-                                    jumpConfig: {
-                                        ...config.jumpConfig,
-                                        m: val,
-                                    },
-                                })
-                            }
-                            onSecondChange={(val) =>
-                                update({
-                                    jumpConfig: {
-                                        ...config.jumpConfig,
-                                        s: val,
-                                    },
-                                })
-                            }
+                            label="切&emsp;集"
+                            value={config.jumpConfig}
+                            onChange={(next) => update({ jumpConfig: next })}
                         />
                     </Match>
                 </Switch>

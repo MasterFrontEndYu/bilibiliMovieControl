@@ -3,6 +3,7 @@ import { createRouter, defineRoutes, hashHistory } from "@solidjs/router";
 import { lazy } from "solid-js";
 
 import {
+    BadgeAlert,
     BellDot,
     HouseHeart,
     Keyboard,
@@ -38,7 +39,7 @@ const routes = defineRoutes([
     {
         path: "/about",
         component: lazy(() => import("./pages/About.tsx")),
-        info: { title: "关于", icon: HouseHeart, index: 6 },
+        info: { title: "关于", icon: BadgeAlert, index: 6 },
     },
     {
         path: "/shortcut",
