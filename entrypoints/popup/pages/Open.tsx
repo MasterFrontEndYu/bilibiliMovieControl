@@ -7,9 +7,6 @@ import { useConfig } from "@/hooks/useStorageConfig";
 import { CircleX, Clock, RotateCcw, SaveCheck, Trash } from "@lucide/solid";
 import { useNavigate } from "@solidjs/router";
 
-// ⚠️ TimeRange 类型假设为 { id: string; start: TimeParts; end: TimeParts }
-//    TimeParts = { h: number; m: number; s: number }
-//    如果你的类型不同，把下面的 toSec / 拷贝逻辑对应调整
 
 type TimeParts = { h: number; m: number; s: number };
 
@@ -23,13 +20,18 @@ export default function Open() {
     const [currentId, setCurrentId] = createSignal<string | null>(null);
     const [currentStart, setCurrentStart] = createSignal<TimeParts>({ ...ZERO });
     const [currentEnd, setCurrentEnd] = createSignal<TimeParts>({ ...ZERO });
+    const [error, setError] = createSignal("");
 
     const navigate = useNavigate();
+
+    /** 结束时间必须严格晚于开始时间才允许保存 */
+    const canSave = () => toSec(currentEnd()) > toSec(currentStart());
 
     /**
      * 点击列表项 → 把该时段加载到编辑区
      */
     const handleSelect = (range: TimeRange) => {
+        setError("");
         setCurrentId(range.id);
         setCurrentStart({ ...range.start });
         setCurrentEnd({ ...range.end });
@@ -47,16 +49,17 @@ export default function Open() {
     };
 
     /**
-     * 保存：新增或更新当前编辑的时段
+     * 保存：新增或更新当前编辑的时段，成功后清空编辑区
      */
     const handleConfirm = () => {
+        setError("");
+
         const start = currentStart();
         const end = currentEnd();
 
         // 基本校验：结束时间必须晚于开始时间
         if (toSec(end) <= toSec(start)) {
-            // 你可换成 toast / alert
-            console.warn("结束时间必须晚于开始时间");
+            setError("结束时间必须晚于开始时间");
             return;
         }
 
@@ -69,6 +72,7 @@ export default function Open() {
             if (idx >= 0) {
                 list[idx] = { id: editingId, start, end };
                 update({ opRanges: list });
+                handleResetInput(); // 保存成功后清空
                 return;
             }
         }
@@ -81,13 +85,14 @@ export default function Open() {
         };
         list.push(newRange);
         update({ opRanges: list });
-        setCurrentId(newRange.id);
+        handleResetInput(); // 保存成功后清空（不再回选刚保存的项）
     };
 
     /**
      * 重置编辑区（不影响已保存列表）
      */
     const handleResetInput = () => {
+        setError("");
         setCurrentId(null);
         setCurrentStart({ ...ZERO });
         setCurrentEnd({ ...ZERO });
@@ -150,7 +155,7 @@ export default function Open() {
             <div class="p-3 mt-4 bg-primary/5 flex flex-col gap-2.5 rounded-box">
                 <div class="text-xs font-bold text-primary flex items-center gap-1">
                     <Clock size={12} />
-                    设定新时段
+                    {currentId() ? "编辑时段" : "设定新时段"}
                 </div>
 
                 <TimeInput
@@ -164,6 +169,10 @@ export default function Open() {
                     value={currentEnd()}
                     onChange={(next) => setCurrentEnd(next)}
                 />
+
+                {error() && (
+                    <div class="text-xs text-error pl-1">{error()}</div>
+                )}
             </div>
 
             {/* 3. 底部操作栏 */}
@@ -171,6 +180,7 @@ export default function Open() {
                 <button
                     class="btn btn-soft btn-secondary btn-sm"
                     onClick={handleConfirm}
+                    disabled={!canSave()}
                 >
                     <SaveCheck size={12} />
                     保存
