@@ -72,11 +72,7 @@ export default defineContentScript({
                 return render(
                     () => (
                         <VideoUI
-                            opRanges={config.opRanges}
-                            formatTime={formatTime}
-                            jumpConfig={config.jumpConfig}
-                            frameConfig={config.frameConfig}
-                            mode={config.mode}
+                            config={config}
                             isAnalyzing={isAnalyzing}
                         />
                     ),
