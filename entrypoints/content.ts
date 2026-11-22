@@ -9,11 +9,14 @@ import {
 } from "@/utils/bilibili";
 import type {
     ContentConfig,
+    JumpPanelHandle,
+    JumpPanelTab,
     TimePoint,
     TimeRange,
     VideoUIHandle,
 } from "@/types/types";
-import { createVideoUI } from "@/utils/videoUI";
+import { createActionButtons, createVideoUI } from "@/utils/videoUI";
+import { createJumpPanel } from "@/utils/jumpPanel";
 
 const DEFAULT_CONFIG: ContentConfig = {
     opRanges: [],
@@ -28,6 +31,8 @@ export default defineContentScript({
         // ---------- 1. 配置：直接读 storage，变更由 storage.onChanged 通知 ----------
         let config: ContentConfig = { ...DEFAULT_CONFIG };
         let uiHandle: VideoUIHandle | null = null;
+        let panel: JumpPanelHandle | null = null;
+        let panelHost: HTMLElement | null = null;
 
         const loadConfig = async () => {
             const stored = await browser.storage.local.get({
@@ -42,9 +47,29 @@ export default defineContentScript({
             };
 
             uiHandle?.update(config);
+            panel?.update(config);
         };
 
         await loadConfig();
+
+        /**
+         * 打开浮动窗口（挂到 #playerWrap 内；容器被替换时自动重建）
+         */
+        const openPanel = (tab: JumpPanelTab) => {
+            const host = document.getElementById("playerWrap");
+            if (!host) {
+                console.warn("[BMC] 未找到 #playerWrap，浮动窗口无法打开");
+                return;
+            }
+
+            if (!panel || panelHost !== host) {
+                panel?.destroy();
+                panel = createJumpPanel(host, config);
+                panelHost = host;
+            }
+
+            panel.open(tab);
+        };
 
         // ---------- 2. 工具函数：等待元素出现 ----------
         const waitForElement = (selector: string, timeout = 10000) =>
@@ -71,9 +96,33 @@ export default defineContentScript({
             position: "inline",
             anchor: () => document.getElementById(TARGET_ID) as HTMLElement,
             onMount: (container) => {
-                uiHandle = createVideoUI(container);
+                // 一行两段：左侧状态条，右侧操作按钮
+                const row = document.createElement("div");
+                row.style.cssText =
+                    "display:flex;align-items:center;justify-content:space-between;" +
+                    "gap:12px;width:100%;";
+
+                const left = document.createElement("div");
+                left.style.cssText =
+                    "display:inline-flex;align-items:center;min-width:0;";
+
+                const right = document.createElement("div");
+                right.style.cssText =
+                    "display:inline-flex;align-items:center;gap:8px;";
+
+                row.append(left, right);
+                container.append(row);
+
+                uiHandle = createVideoUI(left);
                 uiHandle.update(config);
+
+                const actions = createActionButtons(right, {
+                    onView: () => openPanel("view"),
+                    onSubmit: () => openPanel("submit"),
+                });
+
                 return () => {
+                    actions.destroy();
                     uiHandle?.destroy();
                     uiHandle = null;
                 };
@@ -88,6 +137,10 @@ export default defineContentScript({
             } else if (!shouldMount && uiMounted) {
                 ui.remove();
                 uiMounted = false;
+
+                panel?.destroy();
+                panel = null;
+                panelHost = null;
             }
         };
 
@@ -127,39 +180,17 @@ export default defineContentScript({
         };
 
         // ---------- 6. 主循环 ----------
-        let lastPageState = false;
-        const mainLoop = async () => {
+        const mainLoop = () => {
             try {
                 const isCol = !!document.querySelector(".video-pod");
-                const runControl = isCol;
-
-                updateUi(runControl);
-
-                if (runControl !== lastPageState) {
-                    lastPageState = runControl;
-                    await browser.storage.local.set({
-                        isPageReady: runControl,
-                    });
-                }
-
-                if (runControl) {
-                    runControlLogic();
-                }
+                updateUi(isCol);
+                if (isCol) runControlLogic();
             } catch (e) {
                 console.error("[Main Loop] 异常:", e);
             }
         };
 
         // ---------- 7. 事件监听 ----------
-        const messageListener = (msg: any, _sender: any, sendResponse: any) => {
-            if (msg.type === "PING") {
-                sendResponse({ alive: lastPageState });
-                return true;
-            }
-            return false;
-        };
-        browser.runtime.onMessage.addListener(messageListener);
-
         // popup / options 写入 storage 后，浏览器通过 onChanged 通知到这里
         const storageListener = (changes: any, area: string) => {
             if (area !== "local") return;
@@ -174,6 +205,11 @@ export default defineContentScript({
                 (event as CustomEvent).detail?.newUrl || (event as any).newUrl;
             if (!newUrl) return;
             lastJumpTime = 0;
+
+            // 换 P / 换视频后 playerWrap 可能被替换，窗口留给下次重新创建
+            panel?.destroy();
+            panel = null;
+            panelHost = null;
         };
         ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
@@ -186,8 +222,10 @@ export default defineContentScript({
         // ctx.addEventListener / ctx.setInterval 由 WXT 在失效时自动清理；
         // browser.* 上的监听需要手动移除。
         ctx.onInvalidated(() => {
-            browser.runtime.onMessage.removeListener(messageListener);
             browser.storage.onChanged.removeListener(storageListener);
+            panel?.destroy();
+            panel = null;
+            panelHost = null;
             updateUi(false);
         });
     },

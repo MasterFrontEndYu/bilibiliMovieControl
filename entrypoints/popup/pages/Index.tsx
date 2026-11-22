@@ -1,5 +1,5 @@
 // entrypoints/popup/App.tsx
-import { Show, createSignal, onSettled } from "solid-js";
+import { createSignal, onSettled } from "solid-js";
 import { TimeInput } from "@/components/TimeInput";
 import { HistoryList } from "@/components/HistoryList";
 import { browser } from "wxt/browser";
@@ -14,11 +14,7 @@ import { useNavigate } from "@solidjs/router";
 import { RotateCcw, RotateCwClock, SaveCheck, Settings } from '@lucide/solid';
 
 export default function Index() {
-    const { config, update } = useConfig([
-        "jumpConfig",
-        "opRanges",
-        "isPageReady",
-    ]);
+    const { config, update } = useConfig(["jumpConfig", "opRanges"]);
 
     const [latestHistory, setLatestHistory] = createSignal<HistoryConfig[]>([]);
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
@@ -94,25 +90,6 @@ export default function Index() {
                 <h1 class="text-base align-center font-bold">
                     {getSoftName()}
                 </h1>
-                <span
-                    class={`badge badge-xs badge-soft items-center ${config.isPageReady ? "badge-success" : "badge-ghost"}`}
-                >
-                    <Show
-                        when={config.isPageReady}
-                        fallback={
-                            <>
-                                <span class="status"></span>
-                                未启动
-                            </>
-                        }
-                    >
-                        <div class="inline-grid *:[grid-area:1/1]">
-                            <div class="status status-success animate-ping"></div>
-                            <div class="status status-success"></div>
-                        </div>
-                        已就绪
-                    </Show>
-                </span>
                 <button
                     class=" btn btn-outline btn-primary btn-xs"
                     onClick={openOptions}

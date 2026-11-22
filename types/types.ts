@@ -27,12 +27,8 @@ export interface Config {
     jumpConfig: TimePoint; // 切集点
 }
 
-export interface BiliVideoConfig extends Config {
-    isPageReady: boolean;
-}
-
 /** 内容脚本只关心这两项配置 */
-export type ContentConfig = Pick<BiliVideoConfig, "opRanges" | "jumpConfig">;
+export type ContentConfig = Pick<Config, "opRanges" | "jumpConfig">;
 
 // ============================================================
 // 历史记录
@@ -74,10 +70,38 @@ export interface HistorySnapshot {
 // ============================================================
 
 /** 悬浮条只关心这两项配置 */
-export type VideoUIConfig = Pick<BiliVideoConfig, "opRanges" | "jumpConfig">;
+export type VideoUIConfig = Pick<Config, "opRanges" | "jumpConfig">;
 
 export interface VideoUIHandle {
     update: (config: VideoUIConfig) => void;
+    destroy: () => void;
+}
+
+// ============================================================
+// 内容脚本操作区（按钮组 + 浮动窗口）
+// ============================================================
+
+export type JumpPanelTab = "view" | "submit";
+
+/** 浮动窗口只关心这两项配置 */
+export type JumpPanelConfig = Pick<Config, "opRanges" | "jumpConfig">;
+
+export interface JumpPanelHandle {
+    open: (tab?: JumpPanelTab) => void;
+    close: () => void;
+    update: (config: JumpPanelConfig) => void;
+    destroy: () => void;
+}
+
+export interface ActionButtonHandlers {
+    onView: () => void;
+    onSubmit: () => void;
+}
+
+/** 按钮配色：primary = 粉色（查看），secondary = 淡蓝（提交） */
+export type ActionButtonVariant = "primary" | "secondary";
+
+export interface ActionButtonsHandle {
     destroy: () => void;
 }
 
@@ -105,6 +129,67 @@ export interface TimeRangeManagerProps {
     ranges: TimeRange[];
     onUpdate: (newConfig: { opRanges: TimeRange[] }) => void;
     onClose: () => void;
+}
+
+// ============================================================
+// BilibiliSponsorBlock API
+// ============================================================
+
+/**
+ * /api/skipSegments 返回的单个片段（已归一化）。
+ * actionType 已知取值：skip / mute / full / poi / chapter，服务端可能新增。
+ */
+export interface ApiSegment {
+    id: string; // 片段 UUID
+    cid: string; // 所属分P 的 cid，未知时为空串
+    start: number; // 开始时间（秒）
+    end: number; // 结束时间（秒）
+    category: string; // intro / outro / sponsor / ...
+    actionType: string; // skip / mute / full / poi / chapter
+    locked: number;
+    votes: number;
+    videoDuration: number; // 提交时的视频时长（秒）
+}
+
+export type ApiLookupReason =
+    | "bad-bvid"
+    | "bad-request"
+    | "bad-json"
+    | "duplicate"
+    | "network"
+    | "not-found"
+    | "rate-limited"
+    | "rejected"
+    | "timeout"
+    | `http-${number}`;
+
+export interface ApiLookupResult {
+    ok: boolean;
+    segments: ApiSegment[];
+    fromCache: boolean;
+    reason?: ApiLookupReason;
+}
+
+/** 提交时单个片段（秒） */
+export interface SubmitSegmentInput {
+    start: number;
+    end: number;
+    category?: string;
+    actionType?: string;
+}
+
+export interface SubmitSegmentsParams {
+    bvid: string;
+    cid?: string;
+    videoDuration: number;
+    userID: string;
+    segments: SubmitSegmentInput[];
+}
+
+export interface SubmitResult {
+    ok: boolean;
+    reason?: ApiLookupReason;
+    created?: unknown;
 }
 
 // ============================================================
