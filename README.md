@@ -16,7 +16,6 @@
 - **云端片段**：查询 BilibiliSponsorBlock 的片段，带 `BiliSB` 标识
 - **上传**：把手动片段提交到 bsbsb.top
 - **存档**：自动记录最近播放，也支持手动存档（各 20 条）
-- **多 OP 编辑**：Popup 中可管理多个跳过时间段
 
 ## 🎯 适用范围
 
@@ -36,7 +35,7 @@
 ## 🖥️ 界面
 
 - **播放页**：悬浮状态条 + 可拖拽的「查看 / 上传」窗口
-- **Popup**：片段概览、管理多个跳过时间段、最近播放、手动存档
+- **Popup**：片段概览、最近播放、手动存档、进入设置页
 - **Options**：功能讲解 / 自动存档 / 手动存档 / 关于
 
 ## 💾 存储
@@ -57,6 +56,29 @@
 | 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com) |
 | 接口 | [BilibiliSponsorBlock API](https://github.com/hanydd/BilibiliSponsorBlock/wiki/API) |
 | 构建 | Vite + Bun |
+
+API 环境：
+
+- 正式：`https://bsbsb.top/api/skipSegments`
+- 测试：`https://bsbsb.top/test/api/skipSegments`
+
+开发构建使用测试环境，正式构建使用正式环境。
+
+## 📎 第三方引用与许可证
+
+云端片段的查询与上传基于 [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) 的公开 HTTP API：
+
+- 项目地址：<https://github.com/hanydd/BilibiliSponsorBlock>
+- API 文档：<https://github.com/hanydd/BilibiliSponsorBlock/wiki/API>
+- 服务地址：<https://bsbsb.top>
+
+需要注意：BilibiliSponsorBlock 整体采用 **GPL-3.0** 许可证（[许可证原文](https://www.gnu.org/licenses/gpl-3.0.html)）。
+
+- 本项目没有复制或修改其源代码，只在运行时调用其 API；片段数据由该项目社区提交
+- 如果你的分发版本包含该项目的数据或衍生代码，可能同样需要以 **GPL-3.0 兼容的开源许可证**发布
+- 如果计划闭源或用于商业产品，请先确认 GPL-3.0 的“传染性”是否会构成限制
+
+以上仅为项目引用与许可证信息说明，不构成法律意见。
 
 ## 💻 开发
 

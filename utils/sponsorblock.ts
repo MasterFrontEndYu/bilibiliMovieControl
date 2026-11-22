@@ -13,8 +13,20 @@ import { readCachedSegments, writeCachedSegments } from "@/utils/segmentCache";
  * 文档：https://github.com/hanydd/BilibiliSponsorBlock/wiki/API
  * - GET /api/skipSegments?videoID=BV...&cid=...（cid 省略时返回该 BV 全部分P）
  * - 无数据返回 404；参数错误 400；限流 429
+ *
+ * 官方提供正式 / 测试两套环境：
+ * - 正式：https://bsbsb.top/api/**
+ * - 测试：https://bsbsb.top/test/api/**
  */
-export const SB_API_URL = "https://bsbsb.top/api/skipSegments";
+export const SB_API_BASE_PRODUCTION = "https://bsbsb.top/api";
+export const SB_API_BASE_TEST = "https://bsbsb.top/test/api";
+
+/** 开发构建走测试环境，正式构建走正式环境 */
+export const SB_API_BASE = import.meta.env.DEV
+    ? SB_API_BASE_TEST
+    : SB_API_BASE_PRODUCTION;
+
+export const SB_API_URL = `${SB_API_BASE}/skipSegments`;
 
 const REQUEST_TIMEOUT_MS = 3000;
 const SUBMIT_TIMEOUT_MS = 5000;

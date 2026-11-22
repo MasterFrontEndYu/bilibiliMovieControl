@@ -9,16 +9,13 @@ import {
 } from "@/utils/bilibili";
 import type { HistoryConfig } from "@/types/types";
 import { useConfig, initGlobalConfig } from "@/hooks/useStorageConfig";
-import { useNavigate } from "@solidjs/router";
-import { RotateCwClock, SaveCheck, Settings } from "@lucide/solid";
+import { SaveCheck, Settings } from "@lucide/solid";
 
 export default function Index() {
     const { config } = useConfig(["segments"]);
 
     const [latestHistory, setLatestHistory] = createSignal<HistoryConfig[]>([]);
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
-
-    const navigate = useNavigate();
 
     const skipCount = () =>
         config.segments.filter((segment) => segment.kind === "skip").length;
@@ -58,13 +55,6 @@ export default function Index() {
         browser.tabs.create({ url: browser.runtime.getURL("/options.html") });
     };
 
-    /**
-     * 打开「多 OP 跳转时间段」独立页面
-     */
-    const openTimeRangePage = () => {
-        navigate("/open");
-    };
-
     onSettled(() => {
         (async () => {
             await initGlobalConfig();
@@ -94,15 +84,6 @@ export default function Index() {
                 </button>
             </div>
 
-            <div class="divider m-0">设置多OP跳转</div>
-            <button
-                class="btn btn-dash btn-warning btn-sm btn-block"
-                onClick={openTimeRangePage}
-            >
-                <RotateCwClock size={12} />
-                管理多个跳过时间段
-            </button>
-
             <div class="divider m-0">片段概览</div>
 
             <div class="bg-base-200/60 rounded-xl p-3 text-xs text-base-content/70 flex flex-col gap-1">
@@ -115,7 +96,7 @@ export default function Index() {
                     <span class="font-mono">{nextCount()} 个</span>
                 </div>
                 <div class="text-base-content/45 mt-1">
-                    在播放页点「查看」可新增、编辑、删除片段
+                    在播放页点「设置」可新增、编辑、删除片段
                 </div>
             </div>
 

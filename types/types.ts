@@ -133,26 +133,6 @@ export interface ActionButtonsHandle {
 }
 
 // ============================================================
-// 表单组件
-// ============================================================
-
-export type TimeValue = TimePoint;
-
-export interface TimeInputProps {
-    label: string;
-    value: TimeValue;
-    onChange: (next: TimeValue) => void;
-    delay?: number;
-}
-
-/** 输入框里的原始字符串草稿（允许用户输入非法中间态） */
-export interface TimeInputDraft {
-    h: string;
-    m: string;
-    s: string;
-}
-
-// ============================================================
 // BilibiliSponsorBlock API
 // ============================================================
 

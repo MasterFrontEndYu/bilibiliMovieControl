@@ -120,11 +120,11 @@ export default function HistoryPage() {
             </div>
 
             {/* 底部提示 */}
-            <div class="mt-8 p-4 bg-info/10 border border-info/20 rounded-xl flex gap-2.5 items-start">
-                <p class="m-0 text-xs text-base-content/70 leading-relaxed">
-                    <b>关于自动存档：</b> 插件会在后台检测到视频为“合集/列表”且符合读帧条件时自动创建此记录。
-                    Options 页面会保留最近的 {MAX_HISTORY_LENGTH} 条记录。
-                    但popup页面只会显示最新的 {LATEST_HISTORY_LENGTH} 条记录
+            <div class="mt-8 p-4 bg-base-200/60 rounded-xl">
+                <p class="m-0 text-xs text-base-content/60 leading-relaxed">
+                    <b>关于自动存档：</b> 插件检测到视频为“合集/列表”后会自动创建此记录。
+                    Options 页面会保留最近的 {MAX_HISTORY_LENGTH} 条记录，
+                    Popup 只会显示最新的 {LATEST_HISTORY_LENGTH} 条。
                 </p>
             </div>
         </div>

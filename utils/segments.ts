@@ -16,15 +16,6 @@ const toSeconds = (value: unknown): number => {
     );
 };
 
-export const secondsToTimePoint = (total: number): TimePoint => {
-    const safe = Math.max(0, Math.floor(total));
-    return {
-        h: Math.floor(safe / 3600),
-        m: Math.floor((safe % 3600) / 60),
-        s: safe % 60,
-    };
-};
-
 /**
  * 校验并规范化片段列表：
  * - skip 必须有 ≥1 秒的正向长度
@@ -58,7 +49,11 @@ export function normalizeSegments(raw: unknown): SkipSegment[] {
         });
     }
 
-    return segments.sort((a, b) => a.start - b.start);
+    return segments.sort((a, b) => {
+        // 下一P 永远排在最后
+        if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
+        return a.start - b.start;
+    });
 }
 
 /** 把旧版 opRanges + jumpConfig 迁移成统一片段列表 */
@@ -100,7 +95,11 @@ export function migrateLegacySegments(
         });
     }
 
-    return segments.sort((a, b) => a.start - b.start);
+    return segments.sort((a, b) => {
+        // 下一P 永远排在最后
+        if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
+        return a.start - b.start;
+    });
 }
 
 /**

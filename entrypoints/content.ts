@@ -62,10 +62,12 @@ export default defineContentScript({
             void video.play()?.catch(() => undefined);
         };
 
-        /** 新增 / 更新一个手动片段 */
+        /** 新增 / 更新一个手动片段（下一P 全局只保留一个） */
         const saveSegment = async (segment: SkipSegment) => {
             const next = config.segments.filter(
-                (item) => item.id !== segment.id,
+                (item) =>
+                    item.id !== segment.id &&
+                    !(segment.kind === "next" && item.kind === "next"),
             );
             next.push(segment);
 

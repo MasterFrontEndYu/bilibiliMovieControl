@@ -130,10 +130,10 @@ export default function ManualPage() {
             </div>
 
             {/* 底部提示 */}
-            <div class="mt-8 p-4 bg-info/10 border border-info/20 rounded-xl flex gap-2.5 items-start">
-                <p class="m-0 text-xs text-base-content/70 leading-relaxed">
+            <div class="mt-8 p-4 bg-base-200/60 rounded-xl">
+                <p class="m-0 text-xs text-base-content/60 leading-relaxed">
                     <b>关于手动存档：</b>
-                    用户可以在视频播放过程中点击插件图标，选择“手动存档”来保存当前的片段配置和视频信息，以便下次直接使用。
+                    在视频播放页点击插件图标，选择“手动存档”保存当前的片段配置和视频信息，方便下次使用。
                     Options 页面会保留最近的 {MAX_HISTORY_LENGTH} 条记录。
                     但popup页面只会显示最新的 {PINNED_HISTORY_LENGTH} 条记录
                 </p>

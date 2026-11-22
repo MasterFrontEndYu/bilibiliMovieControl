@@ -63,7 +63,7 @@ export function createActionButtons(
     handlers: ActionButtonHandlers,
 ): ActionButtonsHandle {
     const viewButton = createButton("查看", "primary", handlers.onView);
-    const submitButton = createButton("上传", "secondary", handlers.onSubmit);
+    const submitButton = createButton("设置", "secondary", handlers.onSubmit);
 
     host.append(viewButton, submitButton);
 
@@ -102,20 +102,40 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
     next.title = "到点切换下一 P 的片段数";
 
     badge.append(skip, divider, next);
-    root.append(badge);
+
+    const warning = document.createElement("span");
+    warning.textContent = "⚠ 下一P时间早于片段跳过结束，可能导致连续跳转。";
+    warning.style.cssText =
+        "display:none;margin-left:8px;font-size:12px;color:#b45309;";
+
+    root.append(badge, warning);
     container.append(root);
 
     const update = (cfg: VideoUIConfig) => {
         const segments = cfg.segments ?? [];
-        const skipCount = segments.filter(
+        const skipSegments = segments.filter(
             (segment) => segment.kind === "skip",
-        ).length;
-        const nextCount = segments.filter(
+        );
+        const nextSegments = segments.filter(
             (segment) => segment.kind === "next",
-        ).length;
+        );
 
-        skip.textContent = `⏭ OP 跳过 ${skipCount} 段`;
-        next.textContent = `🔚 下一 P ${nextCount} 个`;
+        const conflict = nextSegments.some(
+            (nextSegment) =>
+                nextSegment.start > 0 &&
+                skipSegments.some(
+                    (skipSegment) => skipSegment.end >= nextSegment.start,
+                ),
+        );
+
+        skip.textContent = `⏭ OP 跳过 ${skipSegments.length} 段`;
+        next.textContent = `🔚 下一 P ${nextSegments.length} 个`;
+
+        badge.style.background = conflict ? "#f59e0b" : "#fb7299";
+        badge.style.boxShadow = conflict
+            ? "0 2px 6px rgba(245,158,11,.4)"
+            : "0 2px 6px rgba(251,114,153,.3)";
+        warning.style.display = conflict ? "inline" : "none";
     };
 
     return {

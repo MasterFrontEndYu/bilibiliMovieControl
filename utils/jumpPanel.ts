@@ -18,7 +18,7 @@ const USER_ID_STORAGE_KEY = "sbUserID";
 const MIN_USER_ID_LENGTH = 30;
 
 const KIND_LABELS: Record<SegmentKind, string> = {
-    skip: "OP跳过",
+    skip: "片段跳过",
     next: "下一P",
 };
 
@@ -90,6 +90,8 @@ transition:background .15s;}
 .bmc-submit:hover{background:#f25d8b;}
 .bmc-submit:disabled{opacity:.55;cursor:default;}
 .bmc-status{margin-top:8px;font-size:11px;line-height:1.5;min-height:16px;}
+.bmc-section-head .bmc-status{margin:0;flex:1;min-height:0;text-align:center;
+font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .bmc-footer{margin:0;padding:6px 10px;min-height:0;border-top:1px solid rgba(255,255,255,.08);}
 `;
 
@@ -236,16 +238,19 @@ export function createJumpPanel(
     let apiLoaded = false;
 
     let selectedId: string | null = null;
-    let editing = false;
+    let editingStart = false;
+    let editingEnd = false;
     let editId: string | null = null;
     let editKind: SegmentKind = "skip";
     let editStartText = formatSeconds(handlers.getCurrentTime());
     let editEndText = formatSeconds(
         Math.min(
-            handlers.getCurrentTime() + 30,
-            handlers.getDuration() || handlers.getCurrentTime() + 30,
+            handlers.getCurrentTime() + 20,
+            handlers.getDuration() || handlers.getCurrentTime() + 20,
         ),
     );
+
+    const isEditing = () => editingStart || editingEnd;
 
     let userID = "";
     let statusKind: "info" | "success" | "error" = "info";
@@ -268,7 +273,7 @@ export function createJumpPanel(
     const submitTab = document.createElement("button");
     submitTab.type = "button";
     submitTab.className = "bmc-tab";
-    submitTab.textContent = "上传";
+    submitTab.textContent = "设置";
 
     const closeButton = document.createElement("button");
     closeButton.type = "button";
@@ -299,12 +304,14 @@ export function createJumpPanel(
     const setStatus = (text: string, kind: "info" | "success" | "error") => {
         statusKind = kind;
         statusBar.textContent = text;
+        statusBar.title = text;
         statusBar.style.color = statusColor();
 
         if (statusTimer) clearTimeout(statusTimer);
         statusTimer = setTimeout(
             () => {
                 statusBar.textContent = "";
+                statusBar.title = "";
                 statusTimer = null;
             },
             kind === "error" ? 5000 : 3000,
@@ -330,6 +337,51 @@ export function createJumpPanel(
                 ? videoDuration() || segment.start + 60
                 : segment.end;
         return formatSeconds(end);
+    };
+
+    /**
+     * 打开「设置」页时确定一个当前目标：
+     * 1. 正在编辑 → 保留草稿
+     * 2. 已有选中 → 保留
+     * 3. 当前进度落在某个片段里 → 选中它
+     * 4. 否则选第一个片段
+     * 5. 一个片段都没有 → 直接进入新建草稿（起始 = 当前进度）
+     */
+    const prepareSubmitTab = () => {
+        if (isEditing()) return;
+
+        const selected = findSegment(selectedId);
+        const now = handlers.getCurrentTime();
+
+        const containing = currentConfig.segments.find(
+            (segment) => now >= segment.start && now < segment.end,
+        );
+
+        const target = selected ?? containing ?? currentConfig.segments[0];
+
+        if (!target) {
+            selectedId = null;
+            editId = null;
+            editKind = "skip";
+            editingStart = true;
+            editingEnd = true;
+            editStartText = formatSeconds(now);
+
+            const end =
+                videoDuration() > 0
+                    ? Math.min(now + 20, videoDuration())
+                    : now + 20;
+            editEndText = formatSeconds(Math.max(now + 1, end));
+            return;
+        }
+
+        selectedId = target.id;
+        editId = target.id;
+        editKind = target.kind;
+        editStartText = formatSeconds(target.start);
+        editEndText = endTextFor(target);
+        editingStart = false;
+        editingEnd = false;
     };
 
     // ---------- 查看页（只读） ----------
@@ -361,44 +413,51 @@ export function createJumpPanel(
         return row;
     };
 
-    const beginEditing = (segment: SkipSegment | null) => {
-        editing = true;
-        editKind = segment?.kind ?? "skip";
-        editId = segment && segment.source === "manual" ? segment.id : null;
+    const startNewSegment = () => {
+        selectedId = null;
+        editId = null;
+        editKind = "skip";
+        editingStart = true;
+        editingEnd = true;
 
-        const start = segment ? segment.start : handlers.getCurrentTime();
+        const start = handlers.getCurrentTime();
         editStartText = formatSeconds(start);
 
-        if (segment) {
-            editEndText = endTextFor(segment);
-        } else {
-            const end =
-                videoDuration() > 0
-                    ? Math.min(start + 30, videoDuration())
-                    : start + 30;
-            editEndText = formatSeconds(Math.max(start + 1, end));
-        }
+        const end =
+            videoDuration() > 0
+                ? Math.min(start + 20, videoDuration())
+                : start + 20;
+        editEndText = formatSeconds(Math.max(start + 1, end));
 
         render();
     };
 
     const buildEditSegment = (): SkipSegment | null => {
         const start = parseTimeText(editStartText);
-        const end = parseTimeText(editEndText);
+        let end = parseTimeText(editEndText);
 
         if (!Number.isFinite(start) || !Number.isFinite(end)) {
             setStatus("时间格式应为 时:分:秒", "error");
             return null;
         }
 
-        if (start < 0 || end <= start) {
-            setStatus("结束位置必须晚于起始位置", "error");
+        if (start < 0) {
+            setStatus("起始位置不能为负数", "error");
             return null;
         }
 
-        if (end - start < MIN_SEGMENT_SECONDS) {
-            setStatus(`片段长度至少 ${MIN_SEGMENT_SECONDS} 秒`, "error");
-            return null;
+        // 结束不晚于开始时，默认取「开始 + 20 秒」
+        if (end <= start) {
+            end = start + 20;
+            const duration = videoDuration();
+            if (duration > 0 && end > duration) end = duration;
+
+            if (end - start < MIN_SEGMENT_SECONDS) {
+                setStatus("结束位置必须晚于起始位置", "error");
+                return null;
+            }
+
+            editEndText = formatSeconds(end);
         }
 
         return {
@@ -410,7 +469,7 @@ export function createJumpPanel(
         };
     };
 
-    const saveEditing = async () => {
+    const saveBoundary = async (which: "start" | "end") => {
         const segment = buildEditSegment();
         if (!segment) {
             render();
@@ -420,8 +479,19 @@ export function createJumpPanel(
         await handlers.onSaveSegment(segment);
         selectedId = segment.id;
         editId = segment.id;
-        editing = false;
-        setStatus("已保存片段", "success");
+        editStartText = formatSeconds(segment.start);
+        editEndText = formatSeconds(segment.end);
+
+        if (which === "start") {
+            editingStart = false;
+        } else {
+            editingEnd = false;
+        }
+
+        setStatus(
+            which === "start" ? "已保存开头" : "已保存结尾",
+            "success",
+        );
         render();
     };
 
@@ -436,13 +506,13 @@ export function createJumpPanel(
         startInput.type = "text";
         startInput.value = editStartText;
         startInput.placeholder = "00:00:00";
-        startInput.disabled = !editing;
+        startInput.disabled = !editingStart;
         startInput.addEventListener("input", () => {
             editStartText = startInput.value;
         });
 
         const kindSelect = document.createElement("select");
-        kindSelect.disabled = !editing;
+        kindSelect.disabled = !isEditing();
         for (const kind of ["skip", "next"] as const) {
             const option = document.createElement("option");
             option.value = kind;
@@ -458,12 +528,51 @@ export function createJumpPanel(
         endInput.type = "text";
         endInput.value = editEndText;
         endInput.placeholder = "00:00:00";
-        endInput.disabled = !editing;
+        endInput.disabled = !editingEnd;
         endInput.addEventListener("input", () => {
             editEndText = endInput.value;
         });
 
+        // 开头 / 结尾 各自独立：编辑 / 保存
+        const boundary = document.createElement("div");
+        boundary.className = "bmc-actions";
+
+        const makeBoundary = (
+            label: string,
+            active: boolean,
+            onClick: () => void,
+        ) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = active
+                ? "bmc-action is-primary"
+                : "bmc-action";
+            button.textContent = `${label}：${active ? "保存" : "编辑"}`;
+            button.addEventListener("click", onClick);
+            return button;
+        };
+
+        boundary.append(
+            makeBoundary("开头", editingStart, () => {
+                if (editingStart) {
+                    void saveBoundary("start");
+                } else {
+                    editingStart = true;
+                    render();
+                }
+            }),
+            makeBoundary("结尾", editingEnd, () => {
+                if (editingEnd) {
+                    void saveBoundary("end");
+                } else {
+                    editingEnd = true;
+                    render();
+                }
+            }),
+        );
+
         editor.append(startInput, kindSelect, endInput);
+        wrapper.append(boundary);
         wrapper.append(editor);
 
         // 五个操作
@@ -505,15 +614,9 @@ export function createJumpPanel(
                 void handlers.onDeleteSegment(id).then(() => {
                     selectedId = null;
                     editId = null;
-                    editing = false;
-
-                    const start = handlers.getCurrentTime();
-                    editStartText = formatSeconds(start);
-                    const end =
-                        videoDuration() > 0
-                            ? Math.min(start + 30, videoDuration())
-                            : start + 30;
-                    editEndText = formatSeconds(Math.max(start + 1, end));
+                    editingStart = false;
+                    editingEnd = false;
+                    prepareSubmitTab();
 
                     if (currentConfig.segments.length > 0) {
                         setStatus("已删除片段", "success");
@@ -524,10 +627,11 @@ export function createJumpPanel(
                 });
             }),
             makeAction("预览", () => {
-                const segment = editing
+                const segment = isEditing()
                     ? buildEditSegment()
                     : findSegment(selectedId);
                 if (!segment) {
+                    setStatus("请先选中或新建片段", "error");
                     render();
                     return;
                 }
@@ -535,8 +639,8 @@ export function createJumpPanel(
                 handlers.onPreview(segment);
                 close();
             }),
-            makeAction("开头", () => {
-                const start = editing
+            makeAction("定位开头", () => {
+                const start = isEditing()
                     ? parseTimeText(editStartText)
                     : (findSegment(selectedId)?.start ?? Number.NaN);
 
@@ -548,9 +652,9 @@ export function createJumpPanel(
 
                 handlers.onSeek(start);
             }),
-            makeAction("结尾", () => {
-                const segment = editing ? null : findSegment(selectedId);
-                const end = editing
+            makeAction("定位结尾", () => {
+                const segment = isEditing() ? null : findSegment(selectedId);
+                const end = isEditing()
                     ? parseTimeText(editEndText)
                     : segment
                       ? effectiveEnd(segment, videoDuration())
@@ -564,17 +668,6 @@ export function createJumpPanel(
 
                 handlers.onSeek(end);
             }),
-            makeAction(
-                editing ? "保存" : "编辑",
-                () => {
-                    if (editing) {
-                        void saveEditing();
-                    } else {
-                        beginEditing(findSegment(selectedId));
-                    }
-                },
-                true,
-            ),
         );
 
         wrapper.append(actions);
@@ -738,7 +831,8 @@ export function createJumpPanel(
         row.append(badge, time);
         row.addEventListener("click", () => {
             selectedId = segment.id;
-            editing = false;
+            editingStart = false;
+            editingEnd = false;
             editId = segment.id;
             editKind = segment.kind;
             editStartText = formatSeconds(segment.start);
@@ -752,12 +846,20 @@ export function createJumpPanel(
     const renderSubmit = (): HTMLElement => {
         const wrapper = document.createElement("div");
 
-        wrapper.append(sectionHeader("编辑片段"));
-        wrapper.append(renderEditor());
+        // 标题行：编辑片段 | 状态提示 | 已保存 N 个
+        const header = document.createElement("div");
+        header.className = "bmc-section-head";
 
-        wrapper.append(
-            sectionHeader("已保存片段", `${currentConfig.segments.length} 个`),
-        );
+        const title = document.createElement("span");
+        title.textContent = "编辑片段";
+
+        const count = document.createElement("span");
+        count.textContent = `已保存 ${currentConfig.segments.length} 个`;
+
+        header.append(title, statusBar, count);
+        wrapper.append(header);
+
+        wrapper.append(renderEditor());
 
         if (currentConfig.segments.length === 0) {
             wrapper.append(emptyHint("暂无片段"));
@@ -772,11 +874,9 @@ export function createJumpPanel(
         newRow.textContent = "＋ 新建片段（当前进度）";
         newRow.addEventListener("click", () => {
             selectedId = null;
-            beginEditing(null);
+            startNewSegment();
         });
         wrapper.append(newRow);
-
-        wrapper.append(statusBar);
 
         wrapper.append(sectionHeader("私人 ID"));
 
@@ -795,7 +895,7 @@ export function createJumpPanel(
         const idHint = document.createElement("div");
         idHint.className = "bmc-hint";
         idHint.textContent =
-            "首次使用会自动生成并保存在本地；也可以替换成你已有的私人 ID。";
+            "首次使用会自动生成并保存在本地；也可以替换成你已有的私人 ID。此ID仅用于标识上传者，服务端不会收集其他信息。";
         wrapper.append(idHint);
 
         const submitButton = document.createElement("button");
@@ -832,6 +932,7 @@ export function createJumpPanel(
         viewTab.classList.toggle("is-active", tab === "view");
         submitTab.classList.toggle("is-active", tab === "submit");
 
+        if (tab === "submit") prepareSubmitTab();
         if (tab === "view" && !apiLoaded) void loadApiSegments();
         render();
     };
@@ -906,7 +1007,11 @@ export function createJumpPanel(
                             ? ("next" as const)
                             : ("skip" as const),
                     source: "api" as const,
-                }));
+                }))
+                .sort((a, b) => {
+                    if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
+                    return a.start - b.start;
+                });
 
             if (!panel.hidden && activeTab === "view") render();
         } catch {

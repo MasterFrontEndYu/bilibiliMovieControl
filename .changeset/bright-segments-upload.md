@@ -6,5 +6,7 @@
 - 播放页新增「查看 / 上传」浮动窗口：可拖拽；查看片段、编辑起止与类型、预览 / 定位 / 删除
 - 接入 BilibiliSponsorBlock：查询云端片段、上传手动片段，新增 `bsbsb.top` host 权限
 - 移除内置帧分析、状态设置页与 `isAutoHandle`、自定义快捷键
+- 移除 Popup 的多 OP 编辑页，片段统一在播放页「设置」里编辑
+- API 区分正式 / 测试环境：开发构建使用 `bsbsb.top/test/api`，正式构建使用 `bsbsb.top/api`
 - 内容脚本改为原生 DOM 并直接读取 `storage.local`，移除页面内的 SolidJS 依赖
 - 图标只保留一套，去掉 active / inactive 切换；Popup 改为片段概览
