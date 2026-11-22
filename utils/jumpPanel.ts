@@ -1,8 +1,6 @@
 import { browser } from "wxt/browser";
-import { getBvidFromUrl } from "@/utils/bilibili";
 import { MIN_SEGMENT_SECONDS } from "@/utils/segments";
 import type {
-    ApiSegment,
     JumpPanelConfig,
     JumpPanelHandle,
     JumpPanelHandlers,
@@ -52,6 +50,11 @@ font-size:16px;line-height:1;cursor:pointer;padding:0 4px;}
 .bmc-section-head{display:flex;justify-content:space-between;color:rgba(255,255,255,.5);
 font-size:11px;margin:10px 0 4px;}
 .bmc-section-head:first-child{margin-top:0;}
+.bmc-help{box-sizing:border-box;width:16px;height:16px;padding:0;border-radius:50%;
+border:1px solid rgba(255,255,255,.4);background:transparent;color:rgba(255,255,255,.8);
+font-size:11px;line-height:14px;text-align:center;cursor:pointer;font-family:inherit;
+flex:0 0 auto;}
+.bmc-help:hover{background:rgba(255,255,255,.14);color:#fff;}
 .bmc-seg{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;
 background:rgba(255,255,255,.05);cursor:pointer;margin-top:4px;}
 .bmc-seg.is-selected{outline:1px solid #fb7299;background:rgba(251,114,153,.12);}
@@ -61,6 +64,7 @@ background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);}
 .bmc-badge.is-skip{background:rgba(251,114,153,.18);color:#fb7299;}
 .bmc-badge.is-next{background:rgba(124,58,237,.25);color:#c4b5fd;}
 .bmc-badge.is-api{background:rgba(88,166,255,.2);color:#7cc4ff;}
+.bmc-kind{flex:0 0 auto;font-size:11px;color:#7cc4ff;font-weight:600;}
 .bmc-time{font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75);font-size:11px;}
 .bmc-empty{color:rgba(255,255,255,.35);padding:8px;text-align:center;}
 .bmc-hint{color:rgba(255,255,255,.45);font-size:11px;line-height:1.5;margin-top:6px;}
@@ -75,6 +79,11 @@ border:1px solid rgba(255,255,255,.15);background:#3a3a40;color:#fff;font-size:1
 .bmc-import{box-sizing:border-box;width:100%;height:26px;border-radius:6px;
 border:1px solid rgba(255,255,255,.15);background:#3a3a40;color:#fff;font-size:11px;outline:none;}
 .bmc-actions{display:flex;gap:4px;margin-top:6px;}
+.bmc-refresh{box-sizing:border-box;width:100%;height:26px;margin-top:8px;border-radius:6px;
+border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;
+font-size:11px;cursor:pointer;font-family:inherit;}
+.bmc-refresh:hover{background:rgba(255,255,255,.16);}
+.bmc-refresh:disabled{opacity:.55;cursor:default;}
 .bmc-action{flex:1;box-sizing:border-box;height:24px;border:0;border-radius:6px;
 background:rgba(255,255,255,.1);color:rgba(255,255,255,.85);font-size:11px;cursor:pointer;
 font-family:inherit;transition:background .15s;}
@@ -223,7 +232,7 @@ function buildSubmitSegments(
 /**
  * 可拖拽的浮动窗口，挂载在 #playerWrap 内（该容器为 position: relative）。
  * 「查看」页管理手动片段（可导入、编辑、删除、预览、定位）并展示云端片段；
- * 「提交」页把手动片段上传到 bsbsb.top。
+ * 「设置」页把手动片段上传到 bsbsb.top。
  */
 export function createJumpPanel(
     host: HTMLElement,
@@ -410,7 +419,18 @@ export function createJumpPanel(
                 : formatSeconds(segment.end);
         time.textContent = `${formatSeconds(segment.start)} → ${end}`;
 
-        row.append(badge, time);
+        row.append(badge);
+
+        if (segment.source === "api") {
+            const kindMark = document.createElement("span");
+            kindMark.className = "bmc-kind";
+            kindMark.textContent = segment.kind === "next" ? "P" : "⏭";
+            kindMark.title =
+                segment.kind === "next" ? "下一 P 片段" : "跳过片段";
+            row.append(kindMark);
+        }
+
+        row.append(time);
         return row;
     };
 
@@ -512,6 +532,38 @@ export function createJumpPanel(
             editStartText = startInput.value;
         });
 
+        /** 编辑时用 ← / → 微调时间（Shift 每次 10 秒） */
+        const bindTimeArrowKeys = (
+            input: HTMLInputElement,
+            getText: () => string,
+            setText: (value: string) => void,
+        ) => {
+            input.addEventListener("keydown", (event) => {
+                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
+                    return;
+
+                const current = parseTimeText(getText());
+                if (!Number.isFinite(current)) return;
+
+                const step = event.shiftKey ? 10 : 1;
+                const delta = event.key === "ArrowRight" ? step : -step;
+                const next = Math.max(0, current + delta);
+
+                setText(formatSeconds(next));
+                input.value = formatSeconds(next);
+                event.preventDefault();
+                event.stopPropagation();
+            });
+        };
+
+        bindTimeArrowKeys(
+            startInput,
+            () => editStartText,
+            (value) => {
+                editStartText = value;
+            },
+        );
+
         const kindSelect = document.createElement("select");
         for (const kind of ["skip", "next"] as const) {
             const option = document.createElement("option");
@@ -562,6 +614,13 @@ export function createJumpPanel(
         endInput.addEventListener("input", () => {
             editEndText = endInput.value;
         });
+        bindTimeArrowKeys(
+            endInput,
+            () => editEndText,
+            (value) => {
+                editEndText = value;
+            },
+        );
 
         // 开头 / 结尾 各自独立：编辑 / 保存
         const boundary = document.createElement("div");
@@ -704,7 +763,8 @@ export function createJumpPanel(
 
         const hint = document.createElement("div");
         hint.className = "bmc-hint";
-        hint.textContent = "提示：可用 ← / → 微调时间。";
+        hint.textContent =
+            "提示：编辑时间时可用 ← / → 微调 1 秒（Shift 为 10 秒）。";
         wrapper.append(hint);
 
         return wrapper;
@@ -717,7 +777,7 @@ export function createJumpPanel(
             sectionHeader("手动片段", `${currentConfig.segments.length} 个`),
         );
         if (currentConfig.segments.length === 0) {
-            fragment.append(emptyHint("暂无手动片段，去「上传」里新建"));
+            fragment.append(emptyHint("暂无手动片段，去「设置」里新建"));
         } else {
             for (const segment of currentConfig.segments) {
                 fragment.append(renderSegmentRow(segment));
@@ -738,6 +798,24 @@ export function createJumpPanel(
                     fragment.append(renderSegmentRow(segment));
                 }
             }
+
+            const refreshButton = document.createElement("button");
+            refreshButton.type = "button";
+            refreshButton.className = "bmc-refresh";
+            refreshButton.textContent = "刷新云端片段";
+            refreshButton.addEventListener("click", () => {
+                if (refreshButton.disabled) return;
+                refreshButton.disabled = true;
+                refreshButton.textContent = "刷新中…";
+                void loadApiSegments(true);
+            });
+            fragment.append(refreshButton);
+
+            const refreshHint = document.createElement("div");
+            refreshHint.className = "bmc-hint";
+            refreshHint.textContent =
+                "服务器可能有延迟，建议等待 1–2 分钟后再刷新。";
+            fragment.append(refreshHint);
         }
 
         return fragment;
@@ -830,7 +908,8 @@ export function createJumpPanel(
                     "success",
                 );
                 mergeCreatedSegments(result.created);
-                handlers.onUploaded?.();
+                handlers.onUploaded?.(result.created);
+                void loadApiSegments(true);
             } else {
                 const reason = result.reason ?? "";
                 const base =
@@ -852,7 +931,7 @@ export function createJumpPanel(
         }
     };
 
-    /** 上传页的片段行：点击载入编辑器 */
+    /** 设置页的片段行：点击载入编辑器 */
     const renderUploadRow = (segment: SkipSegment): HTMLElement => {
         const row = document.createElement("div");
         row.className = "bmc-seg";
@@ -896,10 +975,21 @@ export function createJumpPanel(
         const title = document.createElement("span");
         title.textContent = "编辑片段";
 
+        const help = document.createElement("button");
+        help.type = "button";
+        help.className = "bmc-help";
+        help.textContent = "?";
+        help.title = "查看设置说明";
+        help.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void browser.runtime.sendMessage({ type: "OPEN_HELP_PAGE" });
+        });
+
         const count = document.createElement("span");
         count.textContent = `已保存 ${currentConfig.segments.length} 个`;
 
-        header.append(title, statusBar, count);
+        header.append(title, help, statusBar, count);
         wrapper.append(header);
 
         wrapper.append(renderEditor());
@@ -1017,6 +1107,13 @@ export function createJumpPanel(
 
         if (existing.length > 0) {
             userID = existing;
+
+            // 首次直接点「设置」时，输入框已经渲染为空，补上已保存的 ID
+            if (!panel.hidden) {
+                const input =
+                    panel.querySelector<HTMLInputElement>(".bmc-input");
+                if (input && !input.value) input.value = userID;
+            }
             return;
         }
 
@@ -1026,58 +1123,26 @@ export function createJumpPanel(
         if (!panel.hidden) render();
     })();
 
-    // ---- 云端片段：打开查看页时拉一次 ----
-    async function loadApiSegments(): Promise<void> {
+    // ---- 云端片段：打开查看页时拉一次，也可手动强制刷新 ----
+    async function loadApiSegments(force = false): Promise<void> {
         if (!currentConfig.useCloudSegments) {
             apiLoaded = false;
             apiSegments = [];
             return;
         }
 
-        apiLoaded = true;
-
-        const bvid = getBvidFromUrl(location.href);
-        if (!bvid) return;
-
         try {
-            const result = (await browser.runtime.sendMessage({
-                type: "SB_LOOKUP",
-                data: {
-                    bvid,
-                    page:
-                        Number(new URL(location.href).searchParams.get("p")) ||
-                        1,
-                },
-            })) as { ok?: boolean; segments?: ApiSegment[] } | undefined;
-
-            if (!result?.ok || !Array.isArray(result.segments)) return;
-
-            apiSegments = result.segments
-                .filter(
-                    (segment) =>
-                        segment.actionType === "skip" ||
-                        segment.actionType === "poi",
-                )
-                .slice(0, 30)
-                .map((segment) => ({
-                    id: segment.id,
-                    start: segment.start,
-                    end: segment.end,
-                    kind:
-                        segment.category === "outro"
-                            ? ("next" as const)
-                            : ("skip" as const),
-                    source: "api" as const,
-                }))
-                .sort((a, b) => {
-                    if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
-                    return a.start - b.start;
-                });
-
-            if (!panel.hidden && activeTab === "view") render();
+            const list = (await handlers.onRefreshCloud?.(force)) ?? [];
+            apiSegments = [...list].sort((a, b) => {
+                if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
+                return a.start - b.start;
+            });
+            apiLoaded = true;
         } catch {
-            // 云端片段只是展示，失败静默忽略
+            // 失败时保持 apiLoaded = false，下次切回「查看」会重试
         }
+
+        if (!panel.hidden && activeTab === "view") render();
     }
 
     // ---- 拖拽：按住标题栏移动，限制在 playerWrap 内 ----

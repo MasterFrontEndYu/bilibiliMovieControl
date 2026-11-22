@@ -102,6 +102,34 @@ export function migrateLegacySegments(
     });
 }
 
+/** 解析上传成功后服务端返回的片段列表 */
+export function parseCreatedSegments(created: unknown): SkipSegment[] {
+    if (!Array.isArray(created)) return [];
+
+    const segments: SkipSegment[] = [];
+
+    for (const raw of created) {
+        if (!raw || typeof raw !== "object") continue;
+
+        const record = raw as Record<string, unknown>;
+        const bounds = Array.isArray(record.segment) ? record.segment : [];
+        const start = Number(bounds[0]);
+        const end = Number(bounds[1]);
+
+        if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+
+        segments.push({
+            id: String(record.UUID ?? `${start}-${end}`),
+            start,
+            end,
+            kind: record.category === "outro" ? "next" : "skip",
+            source: "api",
+        });
+    }
+
+    return segments;
+}
+
 /**
  * 读取片段配置；首次运行时自动把旧的 opRanges / jumpConfig 迁移过来，
  * 迁移完成后删除旧键。

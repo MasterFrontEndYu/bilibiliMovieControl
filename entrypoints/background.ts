@@ -3,6 +3,7 @@ import { cleanBiliUrl } from "@/utils/bilibili";
 import { allowArchive, archiveLatest, archiveManual } from "@/utils/history";
 import { invalidateCachedSegments } from "@/utils/segmentCache";
 import {
+    fetchVideoPages,
     getSkipSegments,
     resolveVideoPage,
     submitSkipSegments,
@@ -41,8 +42,60 @@ export default defineBackground(() => {
                         cid = pageInfo?.cid;
                     }
 
-                    sendResponse(await getSkipSegments(data.bvid, cid));
+                    sendResponse(
+                        await getSkipSegments(
+                            data.bvid,
+                            cid,
+                            Boolean(data.force),
+                        ),
+                    );
                 })();
+                return true;
+            }
+
+            case "OPEN_HELP_PAGE": {
+                const url = browser.runtime.getURL(
+                    "/options.html?section=settings#/",
+                );
+                void browser.tabs.create({ url });
+                sendResponse({ ok: true });
+                return true;
+            }
+
+            case "BILI_PAGES": {
+                const bvid = message.data?.bvid;
+                if (
+                    typeof bvid !== "string" ||
+                    !/^BV[0-9A-Za-z]{10}$/.test(bvid)
+                ) {
+                    sendResponse({ ok: false, pages: [] });
+                    return true;
+                }
+
+                void (async () => {
+                    const pages = await fetchVideoPages(bvid);
+                    sendResponse({ ok: pages.length > 0, pages });
+                })();
+                return true;
+            }
+
+            case "OPEN_CLOUD_PAGE": {
+                const bvid = message.data?.bvid;
+                const page = Number(message.data?.page) || 1;
+
+                if (
+                    typeof bvid !== "string" ||
+                    !/^BV[0-9A-Za-z]{10}$/.test(bvid)
+                ) {
+                    sendResponse({ ok: false });
+                    return true;
+                }
+
+                const url = browser.runtime.getURL(
+                    `/options.html#/cloud?bvid=${encodeURIComponent(bvid)}&page=${page}`,
+                );
+                void browser.tabs.create({ url });
+                sendResponse({ ok: true });
                 return true;
             }
 
@@ -68,15 +121,20 @@ export default defineBackground(() => {
      * 自动存档：页面加载稳定后记录当前配置快照
      */
     browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-        await new Promise((resolve) => setTimeout(resolve, ARCHIVE_DELAY_MS));
-
-        const pageUrl = tab.url;
+        // 只处理完整的页面加载；先判断再等待，避免为每次 favicon/标题变化挂 4 秒定时器
         if (
             changeInfo.status !== "complete" ||
-            !pageUrl?.includes("bilibili.com/video")
+            !tab.url?.includes("bilibili.com/video")
         ) {
             return;
         }
+
+        await new Promise((resolve) => setTimeout(resolve, ARCHIVE_DELAY_MS));
+
+        // 等待期间用户可能已经切走或关闭标签页，以当前标签状态为准
+        const currentTab = await browser.tabs.get(tabId).catch(() => null);
+        const pageUrl = currentTab?.url;
+        if (!pageUrl?.includes("bilibili.com/video")) return;
 
         const cleanUrl = cleanBiliUrl(pageUrl);
         if (!allowArchive(cleanUrl)) return;

@@ -7,7 +7,7 @@ import {
     TARGET_ID,
     BTN_CLASS,
 } from "@/utils/bilibili";
-import { loadSegments, saveSegments } from "@/utils/segments";
+import { loadSegments, parseCreatedSegments, saveSegments } from "@/utils/segments";
 import type {
     ApiSegment,
     ContentConfig,
@@ -42,6 +42,11 @@ export default defineContentScript({
         let cloudSegments: SkipSegment[] = [];
         let cloudKey = "";
         let cloudRetryAt = 0;
+        /** 云端请求序号：换 P / 换视频后丢弃迟到的旧响应 */
+        let cloudRequestSeq = 0;
+        /** 刚上传、服务端可能还没返回的片段，先本地生效 */
+        let optimisticSegments: SkipSegment[] = [];
+        let optimisticUntil = 0;
 
         const CLOUD_SKIP_CATEGORIES = new Set(["intro", "sponsor", "selfpromo"]);
 
@@ -56,9 +61,12 @@ export default defineContentScript({
             };
 
             if (!config.useCloudSegments) {
+                cloudRequestSeq += 1;
                 cloudSegments = [];
                 cloudKey = "";
                 cloudRetryAt = 0;
+                optimisticSegments = [];
+                optimisticUntil = 0;
             }
 
             uiHandle?.update(config, cloudSegments);
@@ -66,17 +74,19 @@ export default defineContentScript({
         };
 
         /** 拉取云端片段并按类别映射成 skip / next */
-        const loadCloudSegments = async () => {
+        const loadCloudSegments = async (force = false): Promise<SkipSegment[]> => {
+            const requestSeq = ++cloudRequestSeq;
+
             if (!config.useCloudSegments) {
                 cloudSegments = [];
-                return;
+                return [];
             }
 
             const bvid = getBvidFromUrl(location.href);
             const video = getVideo();
             if (!bvid || !video) {
                 cloudSegments = [];
-                return;
+                return [];
             }
 
             try {
@@ -88,21 +98,24 @@ export default defineContentScript({
                             Number(
                                 new URL(location.href).searchParams.get("p"),
                             ) || 1,
+                        force,
                     },
                 })) as { ok?: boolean; segments?: ApiSegment[] } | undefined;
 
+                // 换 P / 换视频后，迟到的旧响应不再覆盖当前状态
+                if (requestSeq !== cloudRequestSeq) return [];
+
                 if (!result?.ok || !Array.isArray(result.segments)) {
-                    cloudSegments = [];
-                    // 失败（网络/服务端）5 秒后重试
+                    // 失败（网络/服务端）5 秒后重试；保留现有片段（含乐观合并）
                     cloudKey = "";
                     cloudRetryAt = Date.now() + 5000;
-                    return;
+                    return [];
                 }
 
                 cloudRetryAt = 0;
                 const duration = video.duration;
 
-                cloudSegments = result.segments
+                let mapped = result.segments
                     .filter((segment) => segment.actionType === "skip")
                     .filter(
                         (segment) =>
@@ -130,10 +143,35 @@ export default defineContentScript({
                             },
                         ];
                     });
+
+                // 服务端可能还没返回刚上传的片段，2 分钟内先本地补上
+                if (
+                    Date.now() < optimisticUntil &&
+                    optimisticSegments.length > 0
+                ) {
+                    const ids = new Set(mapped.map((item) => item.id));
+                    const missing = optimisticSegments.filter(
+                        (item) => !ids.has(item.id),
+                    );
+
+                    if (missing.length === 0) {
+                        optimisticSegments = [];
+                        optimisticUntil = 0;
+                    } else {
+                        mapped = [...mapped, ...missing];
+                    }
+                } else {
+                    optimisticSegments = [];
+                    optimisticUntil = 0;
+                }
+
+                cloudSegments = mapped;
+                return mapped;
             } catch {
-                cloudSegments = [];
+                if (requestSeq !== cloudRequestSeq) return [];
                 cloudKey = "";
                 cloudRetryAt = Date.now() + 5000;
+                return [];
             }
         };
 
@@ -200,6 +238,37 @@ export default defineContentScript({
             return result ?? { ok: false, reason: "network" };
         };
 
+        /** 上传成功：先把新片段并入云端规则，等刷新结果再校正 */
+        const handleUploaded = (created: unknown) => {
+            const parsed = parseCreatedSegments(created);
+            if (parsed.length === 0) return;
+
+            optimisticSegments = [
+                ...optimisticSegments.filter(
+                    (item) => !parsed.some((added) => added.id === item.id),
+                ),
+                ...parsed,
+            ];
+            optimisticUntil = Date.now() + 2 * 60 * 1000;
+
+            const ids = new Set(parsed.map((item) => item.id));
+            cloudSegments = [
+                ...cloudSegments.filter((item) => !ids.has(item.id)),
+                ...parsed,
+            ];
+
+            uiHandle?.update(config, cloudSegments);
+        };
+
+        /** 供面板手动刷新云端片段 */
+        const refreshCloudSegments = async (
+            force = false,
+        ): Promise<SkipSegment[]> => {
+            await loadCloudSegments(force);
+            uiHandle?.update(config, cloudSegments);
+            return cloudSegments;
+        };
+
         /**
          * 打开浮动窗口（挂到 #playerWrap 内；容器被替换时自动重建）
          */
@@ -214,14 +283,8 @@ export default defineContentScript({
                 panel?.destroy();
                 panel = createJumpPanel(host, config, {
                     onSubmit: submitSegments,
-                    onUploaded: () => {
-                        // 上传成功后缓存已被清掉，立即重拉云端片段
-                        cloudKey = "";
-                        cloudRetryAt = 0;
-                        void loadCloudSegments().finally(() => {
-                            uiHandle?.update(config, cloudSegments);
-                        });
-                    },
+                    onUploaded: handleUploaded,
+                    onRefreshCloud: refreshCloudSegments,
                     onSaveSegment: saveSegment,
                     onDeleteSegment: deleteSegment,
                     onSeek: seekTo,
@@ -236,6 +299,20 @@ export default defineContentScript({
             }
 
             panel.open(tab);
+        };
+
+        /** 从状态条打开「云端片段」数据页，并带上当前 BV / 分P */
+        const openCloudPage = () => {
+            const bvid = getBvidFromUrl(location.href);
+            if (!bvid) return;
+
+            const page =
+                Number(new URL(location.href).searchParams.get("p")) || 1;
+
+            void browser.runtime.sendMessage({
+                type: "OPEN_CLOUD_PAGE",
+                data: { bvid, page },
+            });
         };
 
         // ---------- 2. 工具函数：等待元素出现 ----------
@@ -280,7 +357,7 @@ export default defineContentScript({
                 row.append(left, right);
                 container.append(row);
 
-                uiHandle = createVideoUI(left);
+                uiHandle = createVideoUI(left, openCloudPage);
                 uiHandle.update(config, cloudSegments);
 
                 const actions = createActionButtons(right, {
@@ -298,7 +375,12 @@ export default defineContentScript({
         });
 
         const updateUi = (shouldMount: boolean) => {
-            if (shouldMount && !uiMounted) {
+            // 页面容器被 SPA 替换时，wrapper 会脱离 DOM；此时重新挂载
+            if (shouldMount && (!uiMounted || !ui.wrapper.isConnected)) {
+                if (uiMounted) {
+                    ui.remove();
+                    uiMounted = false;
+                }
                 ui.mount();
                 uiMounted = true;
             } else if (!shouldMount && uiMounted) {
@@ -436,8 +518,12 @@ export default defineContentScript({
             lastJumpTime = 0;
             previewRule = null;
             manualSeekGuardUntil = 0;
+            cloudRequestSeq += 1;
             cloudSegments = [];
             cloudKey = "";
+            optimisticSegments = [];
+            optimisticUntil = 0;
+            uiHandle?.update(config, cloudSegments);
 
             // 换 P / 换视频后 playerWrap 可能被替换，窗口留给下次重新创建
             panel?.destroy();
@@ -447,7 +533,7 @@ export default defineContentScript({
         ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
         // ---------- 8. 启动 ----------
-        await waitForElement(TARGET_ID);
+        await waitForElement(`#${TARGET_ID}`);
 
         ctx.setInterval(mainLoop, 200);
 

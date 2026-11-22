@@ -4,6 +4,7 @@ import type {
     ApiLookupResult,
     ApiSegment,
     BiliVideoPage,
+    BiliVideoPageInfo,
     SubmitResult,
     SubmitSegmentsParams,
 } from "@/types/types";
@@ -38,6 +39,7 @@ export const SB_API_URL = `${SB_API_BASE}/skipSegments`;
 const REQUEST_TIMEOUT_MS = 3000;
 const SUBMIT_TIMEOUT_MS = 5000;
 const CACHE_TTL_MS = 30 * 60 * 1000;
+const FORCE_CACHE_TTL_MS = 2 * 60 * 1000;
 const NEGATIVE_CACHE_TTL_MS = 10 * 60 * 1000;
 
 const BVID_PATTERN = /^BV[0-9A-Za-z]{10}$/;
@@ -122,6 +124,7 @@ class ApiRequestError extends Error {
 async function requestSkipSegments(
     bvid: string,
     cid?: string,
+    force = false,
 ): Promise<ApiSegment[]> {
     let response: Response;
 
@@ -131,6 +134,7 @@ async function requestSkipSegments(
             // Origin 由浏览器自动携带，脚本无法设置；这里只标识扩展版本
             headers: {
                 "x-ext-version": browser.runtime.getManifest().version,
+                ...(force ? { "x-skip-cache": "1" } : {}),
             },
         });
     } catch (error) {
@@ -156,12 +160,14 @@ async function requestSkipSegments(
 /**
  * 查询某个视频的云端片段（带缓存与并发去重）。
  *
- * @param bvid 视频 BV 号
- * @param cid  可选，分P 的 cid；省略时返回该 BV 全部分P 的片段
+ * @param bvid  视频 BV 号
+ * @param cid   可选，分P 的 cid；省略时返回该 BV 全部分P 的片段
+ * @param force 为 true 时跳过本地缓存并带 `x-skip-cache` 请求服务端
  */
 export async function getSkipSegments(
     bvid?: string,
     cid?: string,
+    force = false,
 ): Promise<ApiLookupResult> {
     if (!isValidBvid(bvid)) {
         return {
@@ -174,26 +180,36 @@ export async function getSkipSegments(
 
     const key = cacheKey(bvid, cid);
 
-    const cached = await readCachedSegments(key);
-    if (cached) {
-        return { ok: true, segments: cached, fromCache: true };
+    if (!force) {
+        const cached = await readCachedSegments(key);
+        if (cached) {
+            return { ok: true, segments: cached, fromCache: true };
+        }
     }
 
-    const running = inFlight.get(key);
+    const flightKey = `${key}:${force ? "force" : "normal"}`;
+
+    const running = inFlight.get(flightKey);
     if (running) return running;
 
     const task = (async (): Promise<ApiLookupResult> => {
         try {
-            const segments = await requestSkipSegments(bvid, cid);
-            await writeCachedSegments(key, segments, CACHE_TTL_MS);
+            const segments = await requestSkipSegments(bvid, cid, force);
+            await writeCachedSegments(
+                key,
+                segments,
+                force ? FORCE_CACHE_TTL_MS : CACHE_TTL_MS,
+            );
             return { ok: true, segments, fromCache: false };
         } catch (error) {
             const reason: ApiLookupReason =
                 error instanceof ApiRequestError ? error.reason : "network";
 
             if (reason === "not-found") {
-                // 无数据是常态：短暂缓存空结果，避免反复请求
-                await writeCachedSegments(key, [], NEGATIVE_CACHE_TTL_MS);
+                // 无数据是常态：短暂缓存空结果，避免反复请求；强制刷新时不写
+                if (!force) {
+                    await writeCachedSegments(key, [], NEGATIVE_CACHE_TTL_MS);
+                }
                 return {
                     ok: true,
                     segments: [],
@@ -204,11 +220,11 @@ export async function getSkipSegments(
 
             return { ok: false, segments: [], fromCache: false, reason };
         } finally {
-            inFlight.delete(key);
+            inFlight.delete(flightKey);
         }
     })();
 
-    inFlight.set(key, task);
+    inFlight.set(flightKey, task);
     return task;
 }
 
@@ -221,33 +237,50 @@ async function readErrorText(response: Response): Promise<string> {
     }
 }
 
-/** 用 bilibili pagelist 补齐当前分P 的 cid 和规范时长 */
-export async function resolveVideoPage(
+/** 拉取 bilibili pagelist：cid → 分P 号 / 时长 / 标题 */
+export async function fetchVideoPages(
     bvid: string,
-    page: number,
-): Promise<BiliVideoPage | null> {
+): Promise<BiliVideoPageInfo[]> {
     try {
         const response = await fetch(
             `https://api.bilibili.com/x/player/pagelist?bvid=${encodeURIComponent(bvid)}`,
             { signal: AbortSignal.timeout(3000) },
         );
-        if (!response.ok) return null;
+        if (!response.ok) return [];
 
         const data = (await response.json()) as {
-            data?: Array<{ page?: number; cid?: number | string; duration?: number }>;
+            data?: Array<{
+                page?: number;
+                cid?: number | string;
+                duration?: number;
+                part?: string;
+            }>;
         };
+
         const pages = Array.isArray(data?.data) ? data.data : [];
-        const info = pages.find((item) => item.page === page) ?? pages[0];
 
-        if (!info?.cid) return null;
-
-        return {
-            cid: String(info.cid),
-            duration: Number(info.duration) || 0,
-        };
+        return pages
+            .filter((item) => item && item.cid != null)
+            .map((item) => ({
+                page: Number(item.page) || 0,
+                cid: String(item.cid),
+                duration: Number(item.duration) || 0,
+                title: typeof item.part === "string" ? item.part : undefined,
+            }));
     } catch {
-        return null;
+        return [];
     }
+}
+
+/** 用 bilibili pagelist 补齐当前分P 的 cid 和规范时长 */
+export async function resolveVideoPage(
+    bvid: string,
+    page: number,
+): Promise<BiliVideoPage | null> {
+    const pages = await fetchVideoPages(bvid);
+    const info = pages.find((item) => item.page === page) ?? pages[0];
+
+    return info ? { cid: info.cid, duration: info.duration } : null;
 }
 
 /**

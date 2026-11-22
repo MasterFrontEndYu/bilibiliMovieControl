@@ -13,15 +13,10 @@ export default defineConfig({
         },
     },
     manifest: {
-        manifest_version: 3,
         browser_specific_settings: {
             gecko: {
                 id: "bilibili-movie-control@sanguogege.com",
             },
-        },
-        options_ui: {
-            page: "entrypoints/options/index.html",
-            open_in_tab: true,
         },
         permissions: ["storage", "tabs", "activeTab", "scripting"],
         host_permissions: ["*://*.bilibili.com/*", "https://bsbsb.top/*"],

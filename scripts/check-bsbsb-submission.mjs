@@ -137,7 +137,7 @@ try {
                 const end = segment.segment?.[1];
                 console.log(
                     `  ${formatRange(start, end)}  ${segment.category ?? "?"}/${segment.actionType ?? "?"}` +
-                        `  votes=${segment.votes ?? "?"}  UUID=${segment.UUID ?? "?"}`,
+                        `  cid=${segment.cid ?? "?"}  votes=${segment.votes ?? "?"}  UUID=${segment.UUID ?? "?"}`,
                 );
             }
         }
@@ -152,7 +152,7 @@ try {
             for (const segment of searchSegments) {
                 console.log(
                     `  ${formatRange(segment.startTime, segment.endTime)}  ${segment.category ?? "?"}/${segment.actionType ?? "?"}` +
-                        `  状态=${visibility(segment)}  votes=${segment.votes ?? "?"}` +
+                        `  cid=${segment.cid ?? "?"}  状态=${visibility(segment)}  votes=${segment.votes ?? "?"}` +
                         `  views=${segment.views ?? "?"}  UUID=${segment.UUID ?? "?"}`,
                 );
             }
@@ -177,7 +177,7 @@ try {
                 console.log("  未找到该片段");
             } else {
                 console.log(
-                    `  ${formatRange(info.startTime, info.endTime)}  ${info.category ?? "?"}/${info.actionType ?? "?"}`,
+                    `  ${formatRange(info.startTime, info.endTime)}  ${info.category ?? "?"}/${info.actionType ?? "?"}  cid=${info.cid ?? "?"}`,
                 );
                 console.log(
                     `  状态=${visibility(info)}  votes=${info.votes ?? "?"}  views=${info.views ?? "?"}  locked=${info.locked ?? "?"}`,
@@ -194,7 +194,7 @@ try {
     console.log("  - 公开片段（skipSegments）是其他 SponsorBlock 客户端会采用的片段");
     console.log("  - 本插件目前只把它展示在「查看」里，是否参与跳转取决于融合逻辑");
     console.log("  - 刚提交的片段可能只出现在 searchSegments 里，状态为隐藏/暗藏时通常还在审核");
-    console.log("  - 两个接口都没有，可能是提交失败、未入库，或查询了错误的环境（--test）");
+    console.log("  - 两个接口都没有，可能是提交失败、未入库，或查询了错误的环境（本脚本固定查询正式环境）");
 } catch (error) {
     console.error(`查询失败: ${error?.message ?? error}`);
     process.exitCode = 1;

@@ -85,7 +85,10 @@ const BADGE_STYLE =
  * 页面内悬浮状态条（原生 DOM 实现，不依赖任何 UI 框架）。
  * 挂载到 WXT 注入的容器里，由调用方在配置变化时调用 update()。
  */
-export function createVideoUI(container: HTMLElement): VideoUIHandle {
+export function createVideoUI(
+    container: HTMLElement,
+    onOpenCloud?: () => void,
+): VideoUIHandle {
     const root = document.createElement("div");
     root.style.cssText = "display:inline-flex;align-items:center;gap:12px;";
 
@@ -93,14 +96,14 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
     badge.style.cssText = BADGE_STYLE;
 
     const skip = document.createElement("span");
-    skip.title = "OP 跳过段数";
+    skip.title = "片段跳过数量";
 
     const divider = document.createElement("span");
     divider.style.cssText =
         "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
 
     const next = document.createElement("span");
-    next.title = "到点切换下一 P 的片段数";
+    next.title = "下一 P";
 
     const divider2 = document.createElement("span");
     divider2.style.cssText =
@@ -117,6 +120,31 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
         "display:none;margin-left:8px;font-size:12px;color:#b45309;";
 
     root.append(badge, warning);
+
+    // 「云端数据」独立于彩色状态条，避免和统计信息混在一起
+    if (onOpenCloud) {
+        const cloudLink = document.createElement("a");
+        cloudLink.href = "#";
+        cloudLink.textContent = "查看云端数据→";
+        cloudLink.style.cssText =
+            "color:#00a1d6;font-size:12px;line-height:1;" +
+            "text-decoration:none;border:1px solid rgba(0,161,214,.45);" +
+            "border-radius:6px;padding:2px 8px;background:rgba(0,161,214,.08);" +
+            "cursor:pointer;font-family:sans-serif;margin-left:2px;";
+        cloudLink.addEventListener("mouseenter", () => {
+            cloudLink.style.background = "rgba(0,161,214,.16)";
+        });
+        cloudLink.addEventListener("mouseleave", () => {
+            cloudLink.style.background = "rgba(0,161,214,.08)";
+        });
+        cloudLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onOpenCloud();
+        });
+        root.append(cloudLink);
+    }
+
     container.append(root);
 
     const update = (
@@ -146,7 +174,7 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
                 ),
         );
 
-        skip.textContent = `⏭ OP 跳过 ${skipSegments.length} 段`;
+        skip.textContent = `⏭ 片段跳过 ${skipSegments.length} 段`;
         next.textContent = `🔚 下一 P ${nextSegments.length} 个`;
         cloud.textContent = cfg.useCloudSegments
             ? `☁ 云端 ${cloudSkip + cloudNext} 个`

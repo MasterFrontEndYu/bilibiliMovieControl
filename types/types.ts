@@ -112,8 +112,10 @@ export interface JumpPanelSubmitPayload {
 
 export interface JumpPanelHandlers {
     onSubmit: (payload: JumpPanelSubmitPayload) => Promise<SubmitResult>;
-    /** 上传成功后通知外层刷新云端片段 */
-    onUploaded?: () => void;
+    /** 上传成功后把新片段先乐观合并进播放规则 */
+    onUploaded?: (created: unknown) => void;
+    /** 重新拉取云端片段（force = 绕过缓存） */
+    onRefreshCloud?: (force?: boolean) => Promise<SkipSegment[]>;
     /** 新增或更新一个手动片段（按 id upsert） */
     onSaveSegment: (segment: SkipSegment) => Promise<void>;
     onDeleteSegment: (id: string) => Promise<void>;
@@ -198,6 +200,12 @@ export interface SubmitSegmentsParams {
 export interface BiliVideoPage {
     cid: string;
     duration: number;
+}
+
+/** 分P 列表项：cid 本身不含分P 号，需要靠 pagelist 映射 */
+export interface BiliVideoPageInfo extends BiliVideoPage {
+    page: number;
+    title?: string;
 }
 
 export interface SubmitResult {

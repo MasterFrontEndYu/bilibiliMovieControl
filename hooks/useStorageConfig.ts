@@ -19,8 +19,16 @@ let initPromise: Promise<void> | null = null;
 export const initGlobalConfig = () => {
     if (initPromise) return initPromise;
     initPromise = (async () => {
-        const segments = await loadSegments();
-        setGlobalConfig((prev) => ({ ...prev, segments }));
+        const [segments, stored] = await Promise.all([
+            loadSegments(),
+            browser.storage.local.get({ useCloudSegments: true }),
+        ]);
+        setGlobalConfig((prev) => ({
+            ...prev,
+            segments,
+            // 必须从 storage 初始化，否则刷新设置页后开关会显示默认值
+            useCloudSegments: stored.useCloudSegments !== false,
+        }));
     })();
     return initPromise;
 };
@@ -64,6 +72,9 @@ export function useConfig<K extends keyof Config>(keys: K[]) {
     });
 
     const update = async (data: Partial<Pick<Config, K>>) => {
+        // 等初始配置读完再写，避免初始化结果覆盖用户刚做的修改
+        await initGlobalConfig().catch(() => undefined);
+
         const sanitized: Partial<Config> = {};
         for (const k of keys) {
             if (k in data) (sanitized as any)[k] = (data as any)[k];
