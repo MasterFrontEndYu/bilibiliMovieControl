@@ -1,4 +1,3 @@
-import { formatTime, toSeconds } from "@/utils/bilibili";
 import type {
     ActionButtonHandlers,
     ActionButtonVariant,
@@ -64,7 +63,7 @@ export function createActionButtons(
     handlers: ActionButtonHandlers,
 ): ActionButtonsHandle {
     const viewButton = createButton("查看", "primary", handlers.onView);
-    const submitButton = createButton("提交", "secondary", handlers.onSubmit);
+    const submitButton = createButton("上传", "secondary", handlers.onSubmit);
 
     host.append(viewButton, submitButton);
 
@@ -92,41 +91,31 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
     const badge = document.createElement("div");
     badge.style.cssText = BADGE_STYLE;
 
-    const count = document.createElement("span");
-    count.title = "跳过段数";
+    const skip = document.createElement("span");
+    skip.title = "OP 跳过段数";
 
     const divider = document.createElement("span");
     divider.style.cssText =
         "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
 
-    const jump = document.createElement("span");
+    const next = document.createElement("span");
+    next.title = "到点切换下一 P 的片段数";
 
-    badge.append(count, divider, jump);
-
-    const warn = document.createElement("span");
-    warn.textContent = "⚠ OP区间超过切集点，会导致一直跳转。";
-    warn.style.cssText =
-        "display:none;margin-left:8px;font-size:12px;color:#b45309;";
-
-    root.append(badge, warn);
+    badge.append(skip, divider, next);
+    root.append(badge);
     container.append(root);
 
     const update = (cfg: VideoUIConfig) => {
-        const ranges = cfg.opRanges ?? [];
-        const jumpSec = toSeconds(cfg.jumpConfig);
-        const conflict =
-            jumpSec > 0 && ranges.some((r) => toSeconds(r.end) >= jumpSec);
+        const segments = cfg.segments ?? [];
+        const skipCount = segments.filter(
+            (segment) => segment.kind === "skip",
+        ).length;
+        const nextCount = segments.filter(
+            (segment) => segment.kind === "next",
+        ).length;
 
-        count.textContent = `⏭ ${ranges.length} 段`;
-        jump.textContent = `🏁 切集点: ${
-            jumpSec > 0 ? formatTime(cfg.jumpConfig) : "未设置"
-        }`;
-
-        badge.style.background = conflict ? "#f59e0b" : "#fb7299";
-        badge.style.boxShadow = conflict
-            ? "0 2px 6px rgba(245,158,11,.4)"
-            : "0 2px 6px rgba(251,114,153,.3)";
-        warn.style.display = conflict ? "inline" : "none";
+        skip.textContent = `⏭ OP 跳过 ${skipCount} 段`;
+        next.textContent = `🔚 下一 P ${nextCount} 个`;
     };
 
     return {

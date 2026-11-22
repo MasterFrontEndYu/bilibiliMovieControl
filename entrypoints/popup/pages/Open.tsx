@@ -1,18 +1,17 @@
 // entrypoints/time-range/App.tsx
 import { createSignal, For } from "solid-js";
 import { TimeInput } from "@/components/TimeInput";
-import type { TimePoint, TimeRange } from "@/types/types";
-import { formatTime } from "@/utils/bilibili";
+import type { SkipSegment, TimePoint } from "@/types/types";
+import { formatTime, toSeconds } from "@/utils/bilibili";
+import { MIN_SEGMENT_SECONDS, secondsToTimePoint } from "@/utils/segments";
 import { useConfig } from "@/hooks/useStorageConfig";
 import { CircleX, Clock, RotateCcw, SaveCheck, Trash } from "@lucide/solid";
 import { useNavigate } from "@solidjs/router";
 
-
 const ZERO: TimePoint = { h: 0, m: 0, s: 0 };
-const toSec = (t: TimePoint) => t.h * 3600 + t.m * 60 + t.s;
 
 export default function Open() {
-    const { config, update } = useConfig(["opRanges"]);
+    const { config, update } = useConfig(["segments"]);
 
     // 编辑区状态
     const [currentId, setCurrentId] = createSignal<string | null>(null);
@@ -22,32 +21,41 @@ export default function Open() {
 
     const navigate = useNavigate();
 
-    /** 结束时间必须严格晚于开始时间才允许保存 */
-    const canSave = () => toSec(currentEnd()) > toSec(currentStart());
+    const skipSegments = () =>
+        config.segments.filter((segment) => segment.kind === "skip");
+
+    const timePoint = (segment: SkipSegment, key: "start" | "end") =>
+        secondsToTimePoint(segment[key]);
+
+    /** 结束时间必须晚于开始时间且满足最短长度 */
+    const canSave = () =>
+        toSeconds(currentEnd()) - toSeconds(currentStart()) >=
+        MIN_SEGMENT_SECONDS;
 
     /**
-     * 点击列表项 → 把该时段加载到编辑区
+     * 点击列表项 → 把该片段加载到编辑区
      */
-    const handleSelect = (range: TimeRange) => {
+    const handleSelect = (segment: SkipSegment) => {
         setError("");
-        setCurrentId(range.id);
-        setCurrentStart({ ...range.start });
-        setCurrentEnd({ ...range.end });
+        setCurrentId(segment.id);
+        setCurrentStart(timePoint(segment, "start"));
+        setCurrentEnd(timePoint(segment, "end"));
     };
 
     /**
-     * 删除某个时段
+     * 删除某个片段
      */
     const handleRemove = (id: string) => {
-        const next = config.opRanges.filter((r) => r.id !== id);
-        update({ opRanges: next });
+        update({
+            segments: config.segments.filter((segment) => segment.id !== id),
+        });
         if (currentId() === id) {
             handleResetInput();
         }
     };
 
     /**
-     * 保存：新增或更新当前编辑的时段，成功后清空编辑区
+     * 保存：新增或更新当前编辑的片段，成功后清空编辑区
      */
     const handleConfirm = () => {
         setError("");
@@ -55,35 +63,39 @@ export default function Open() {
         const start = currentStart();
         const end = currentEnd();
 
-        // 基本校验：结束时间必须晚于开始时间
-        if (toSec(end) <= toSec(start)) {
-            setError("结束时间必须晚于开始时间");
+        if (toSeconds(end) - toSeconds(start) < MIN_SEGMENT_SECONDS) {
+            setError(`片段长度至少 ${MIN_SEGMENT_SECONDS} 秒`);
             return;
         }
 
-        const list = config.opRanges.slice();
+        const list = config.segments.slice();
         const editingId = currentId();
 
         if (editingId) {
-            // 更新已有项
-            const idx = list.findIndex((r) => r.id === editingId);
-            if (idx >= 0) {
-                list[idx] = { id: editingId, start, end };
-                update({ opRanges: list });
-                handleResetInput(); // 保存成功后清空
+            const index = list.findIndex((segment) => segment.id === editingId);
+            if (index >= 0) {
+                list[index] = {
+                    id: editingId,
+                    start: toSeconds(start),
+                    end: toSeconds(end),
+                    kind: "skip",
+                    source: "manual",
+                };
+                update({ segments: list });
+                handleResetInput();
                 return;
             }
         }
 
-        // 新增
-        const newRange: TimeRange = {
+        list.push({
             id: crypto.randomUUID(),
-            start,
-            end,
-        };
-        list.push(newRange);
-        update({ opRanges: list });
-        handleResetInput(); // 保存成功后清空（不再回选刚保存的项）
+            start: toSeconds(start),
+            end: toSeconds(end),
+            kind: "skip",
+            source: "manual",
+        });
+        update({ segments: list });
+        handleResetInput();
     };
 
     /**
@@ -97,7 +109,7 @@ export default function Open() {
     };
 
     /**
-     * 关闭当前页面（独立 tab 页面可自关闭）
+     * 关闭当前页面
      */
     const handleClose = () => {
         navigate("/");
@@ -111,33 +123,33 @@ export default function Open() {
             </div>
             <div class="bg-base-200 p-2 mt-5 flex flex-col gap-1 rounded-box">
                 <div class="text-xs font-bold text-base-content/60 mb-1 pl-1">
-                    已保存的时段 ({config.opRanges.length})
+                    已保存的时段 ({skipSegments().length})
                 </div>
                 <div class="overflow-y-auto h-48">
                     <For
-                        each={config.opRanges}
+                        each={skipSegments()}
                         fallback={
                             <div class="m-auto pl-1 text-base-content/30 text-xs">
                                 暂无跳过时段
                             </div>
                         }
                     >
-                        {(range) => (
+                        {(segment) => (
                             <div
-                                onClick={() => handleSelect(range)}
-                                class={`flex justify-between items-center px-2.5 py-1 bg-base-100 border ${range.id == currentId()
+                                onClick={() => handleSelect(segment)}
+                                class={`flex justify-between items-center px-2.5 py-1 bg-base-100 border ${segment.id == currentId()
                                         ? "border-primary "
                                         : "border-base-300"
                                     } rounded-md cursor-pointer transition-all duration-200 hover:border-primary`}
                             >
                                 <span class="text-sm text-base-content/70 font-mono">
-                                    {formatTime(range.start)} -{" "}
-                                    {formatTime(range.end)}
+                                    {formatTime(timePoint(segment, "start"))} -{" "}
+                                    {formatTime(timePoint(segment, "end"))}
                                 </span>
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        handleRemove(range.id);
+                                        handleRemove(segment.id);
                                     }}
                                     class="btn btn-ghost btn-xs text-base-content/50"
                                 >

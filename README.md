@@ -1,6 +1,6 @@
 # BilibiliMovieControl（B 站连播助手）
 
-> 一款针对 Bilibili（下称 B 站）**用户上传合集**的连播辅助浏览器插件。通过**切集点自动跳转**与灵活的**双重存档机制**，自动跳过片头并切换下一 P，让你的追剧体验真正实现"无人值守"。
+> 面向 B 站**用户上传合集**的连播辅助插件：在播放页管理「OP 跳过 / 下一 P」片段，自动连播，并可将片段上传到 BilibiliSponsorBlock。
 
 ![Version](https://img.shields.io/github/package-json/v/sanguogege/BilibiliMovieControl)
 ![Manifest](https://img.shields.io/badge/Manifest_V3-✓-green)
@@ -8,277 +8,67 @@
 
 ---
 
-## 📑 目录
+## ✨ 功能
 
-- [✨ 核心功能](#-核心功能)
-- [🎯 适用范围说明](#-适用范围说明)
-- [🚀 快速上手](#-快速上手)
-- [🖥️ 界面总览](#️-界面总览)
-- [⚙️ 工作原理](#️-工作原理)
-- [🛠️ 技术架构](#️-技术架构)
-- [💻 开发指南](#-开发指南)
-- [📦 发布流程](#-发布流程)
-- [❓ 常见问题](#-常见问题)
-- [📄 项目说明](#-项目说明)
+- **OP 跳过**：播放进入片段区间时，自动跳到区间终点
+- **下一 P**：播放到达片段起点时，自动点击「下一 P」
+- **片段管理**：播放页的「查看」展示手动片段与云端片段；「上传」里编辑起止位置与类型，支持预览、定位、删除
+- **云端片段**：查询 BilibiliSponsorBlock 的片段，带 `BiliSB` 标识
+- **上传**：把手动片段提交到 bsbsb.top
+- **存档**：自动记录最近播放，也支持手动存档（各 20 条）
+- **多 OP 编辑**：Popup 中可管理多个跳过时间段
 
----
+## 🎯 适用范围
 
-## ✨ 核心功能
+仅对**带选集列表**（`.video-pod`）的合集视频生效；电影、番剧、普通单视频不处理。
 
-### 1. OP / 先导跳过（多区间）
+## 🚀 使用
 
-针对片头较长、内容固定的合集，可设置**多个跳过时间段**。当播放进度进入任一区间时，插件自动将进度跨越到区间终点。
+1. 打开合集视频，标题下方出现状态条与「查看 / 上传」按钮
+2. **查看**：浏览手动片段和云端片段
+3. **上传**：
+   - 编辑片段：填写起止时间、选择类型（OP跳过 / 下一P）
+   - 按钮：删除、预览、开头、结尾、编辑/保存
+   - 已保存片段：点击载入编辑，或「＋ 新建片段」以当前进度为起点
+   - 私人 ID：首次自动生成并保存在本地，也可替换
+4. 播放时按片段自动跳过或切集
 
-- 支持添加 / 编辑 / 删除任意多个时间区间
-- 例如：`0:00:00 → 0:05:00` 跳过片头，`0:06:00 → 0:06:30` 跳过中插广告
+## 🖥️ 界面
 
-### 2. 切集点（自动跳转下一 P）
+- **播放页**：悬浮状态条 + 可拖拽的「查看 / 上传」窗口
+- **Popup**：片段概览、管理多个跳过时间段、最近播放、手动存档
+- **Options**：功能讲解 / 自动存档 / 手动存档 / 关于
 
-播放到设定的**切集点**后自动点击「下一 P」，实现无人值守连播。
+## 💾 存储
 
-| 方式 | 原理 | 适用场景 | 注意事项 |
-| --- | --- | --- | --- |
-| **切集点** | 播放到设定时间点后直接切换下一 P | 每集时长稳定的合集 | 若各集有删减，切集点可能偏早或偏晚 |
-
-> 切集点可精确到秒（时 / 分 / 秒）。
-
-### 3. 多重存档机制
-
-| 存档类型 | 触发方式 | 容量 | 恢复方式 |
-| --- | --- | --- | --- |
-| **最近播放（自动存档）** | 打开合集视频后由后台自动记录标题、URL 及全部时间参数 | 最多 **20 条** | 再次打开同一合集时一键还原配置 |
-| **手动存档** | 在 Popup 中点击"手动存档"按钮 | 最多 **20 条** | 点击列表记录即可跳转并还原 |
-| **快速访问** | — | Popup 展示最近 **2 条**自动记录 + **3 条**手动存档 | 点击即跳转 |
-
-### 4. 状态指示
-
-- **浏览器图标**：检测到当前页面为可处理的合集视频时图标为彩色（active），否则为灰色（inactive），随标签页切换实时更新
-- **Popup 状态徽章**："已就绪 / 未启动"实时反映插件在当前页面的可用状态
-- **页面悬浮提示**：视频标题栏下方显示跳过段数与当前切集点，未设置时显示"未设置"
-
----
-
-## 🎯 适用范围说明
-
-> [!IMPORTANT]
-> **本插件仅针对 B 站用户上传的"合集"生效**（即播放器右侧显示有选集列表 `.video-pod` 的页面）。
->
-> 对**电影、番剧正片、纪录片或普通单个视频页面无效**。
-
----
-
-## 🚀 快速上手
-
-1. **安装插件**（详见 [安装方式](#-安装方式)）
-2. 打开任意 B 站**合集视频**（形如 `bilibili.com/video/BV...?p=1`）
-3. 点击浏览器工具栏中的插件图标，打开 Popup：
-   - 点击 **管理多个跳过时间段**，按需设置 OP / 先导跳过区间
-   - 设置**切集点**（时 / 分 / 秒）
-   - 设置完成后点击 **手动存档**，将当前配置存入长期档案
-4. 回到播放页，配置即刻生效，无需刷新
-5. 播放到片尾时，插件自动跳转下一 P，实现无人值守连播
-
----
-
-## 🖥️ 界面总览
-
-### Popup 弹窗
-
-- 标题栏：插件名称 + 就绪状态徽章 + 「查看」入口（跳转设置页）
-- **设置多 OP 跳转**：打开时间区间管理器（新增 / 修改 / 删除 / 重置）
-- **设置视频集合跳转**：精确输入切集点（时 / 分 / 秒）
-- **重置**：一键清零切集点
-- **最近播放**：显示最新 2 条自动存档，点击跳转
-- **手动存档**：将当前配置保存为长期档案
-- **手动存档列表**：显示最新 3 条，点击跳转
-
-### Options 设置页（4 个选项卡）
-
-| 选项卡 | 说明 |
+| 键名 | 说明 |
 | --- | --- |
-| **功能讲解** | 功能介绍与使用示例（OP 跳转、切集点、存档机制） |
-| **自动存档** | 管理最近播放记录：回看、单条删除、清空全部 |
-| **手动存档** | 管理手动存档记录：回看、单条删除、清空全部 |
-| **插件说明** | 技术栈、设计动机与已知局限说明 |
+| `segments` | 片段列表（`skip` / `next`） |
+| `latestHistory` | 自动存档，最多 20 条 |
+| `pinnedHistory` | 手动存档，最多 20 条 |
+| `sbUserID` | 上传用的私人 ID |
 
----
-
-## ⚙️ 工作原理
-
-```mermaid
-flowchart TD
-    A[打开 B 站合集视频] --> B{页面含选集列表?}
-    B -- 否 --> C[图标置灰, 插件不介入]
-    B -- 是 --> D[图标点亮, 挂载悬浮 UI]
-
-    D --> E[主循环 每 200ms 运行]
-    E --> F[读取当前播放时间]
-    F --> G{处于 OP 跳过区间?}
-    G -- 是 --> H[直接跳至区间终点]
-    G -- 否 --> I{已到达切集点?}
-    I -- 是 --> K[点击下一 P]
-    K --> O[防抖 3s 内不重复点击]
-```
-
-**核心细节**
-
-- **主循环节流**：内容脚本每 200ms 读取一次播放进度；跳转操作 3s 防抖，避免误触
-- **配置读取**：内容脚本启动时直接读 `storage.local`，之后靠 `storage.onChanged` 接收 Popup 的写入，无需刷新页面
-- **切集点**：`jumpConfig` 为 0 时视为未启用，不会自动切集
-- **自动存档**：页面加载完成后，后台 4s 延迟等待、URL 去重（保留 `?p=` 参数）后记录最新配置快照
-
----
-
-## 🛠️ 技术架构
-
-### 技术栈
+## 🛠️ 技术
 
 | 类别 | 选型 |
 | --- | --- |
-| 扩展框架 | [WXT](https://wxt.dev)（Web Extension Toolbox，MV3） |
-| UI 框架 | [SolidJS](https://www.solidjs.com)（仅 Popup / Options；内容脚本为原生 DOM） |
-| 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com)（自适应浏览器深浅色主题） |
-| 图标 | @lucide/solid 
-| 构建工具 | Vite + Bun |
+| 扩展框架 | [WXT](https://wxt.dev)（MV3） |
+| UI | Popup / Options 使用 [SolidJS](https://www.solidjs.com)；内容脚本为原生 DOM |
+| 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com) |
+| 接口 | [BilibiliSponsorBlock API](https://github.com/hanydd/BilibiliSponsorBlock/wiki/API) |
+| 构建 | Vite + Bun |
 
-### 目录结构
-
-```
-BilibiliMovieControl/
-├── entrypoints/               # WXT 入口（每个文件 / 目录都是一个独立入口）
-│   ├── background.ts          # 后台：自动 / 手动存档、图标状态管理、PING 心跳
-│   ├── content.ts             # 内容脚本：原生 DOM + 直接读 storage，主循环 / OP 跳过 / 切集
-│   ├── options/               # 设置页（options.html）
-│   │   ├── App.tsx            # 侧边栏布局 + 路由容器
-│   │   ├── main.tsx           # 页面挂载入口
-│   │   ├── router.ts          # hash 路由：/ /history /manual /about
-│   │   ├── index.html
-│   │   └── pages/             # Index / History / Manual / About
-│   └── popup/                 # 工具栏弹窗（popup.html）
-│       ├── App.tsx            # 弹窗外壳（卡片布局）
-│       ├── main.tsx
-│       ├── router.ts          # hash 路由：/ /open
-│       ├── index.html
-│       └── pages/             # Index（主面板）/ Open（多 OP 区间编辑器）
-├── components/                # 共享 UI 组件（仅 Popup / Options 使用）
-│   ├── TimeInput.tsx          # 时:分:秒 输入组件
-│   ├── HistoryList.tsx        # 存档记录列表（跳转 / 删除）
-│   └── OptionsFooter.tsx      # 设置页页脚（版本与版权信息）
-├── hooks/
-│   └── useStorageConfig.ts    # 配置统一管理（全局 store + storage 双向同步）
-├── utils/
-│   ├── bilibili.ts            # B 站工具：URL 清洗、合集标题、视频元素、时间换算
-│   └── videoUI.ts             # 页面内悬浮状态条（原生 DOM）
-├── types/
-│   └── types.ts               # 全部共享类型（时间 / 配置 / 历史 / 组件 props）
-├── modules/
-│   └── solid.ts               # 自定义 WXT 模块：接入 @solidjs/vite-plugin
-├── assets/
-│   └── css/app.css            # 样式入口（TailwindCSS 4 + DaisyUI）
-├── public/icon/               # active / inactive 两套扩展图标（16 ~ 128）
-├── wxt.config.ts              # WXT 配置（MV3、权限、Edge / Firefox 适配）
-├── tsconfig.json
-├── package.json
-└── bun.lock
-```
-
-### 数据流
-
-```mermaid
-flowchart LR
-    Popup[Popup 弹窗] -- 读写 --> S[(browser.storage.local)]
-    Options[Options 设置页] -- 读写 --> S
-    S -- onChanged 通知 --> CS[Content Script]
-    CS -- 控制视频播放/跳转 --> Bili[B 站播放器]
-    CS -- PING 心跳 --> BG[Background]
-    BG -- 更新图标状态 --> Icon[工具栏图标]
-    CS -- DO_ARCHIVE 消息 --> BG
-```
-
-**配置存储**
-
-| 键名 | 类型 | 说明 |
-| --- | --- | --- |
-| `opRanges` | `TimeRange[]` | 多区间 OP / 中插跳过列表（`id` + `start` / `end`） |
-| `jumpConfig` | `TimePoint` | 切集点（`0:00:00` 表示未启用） |
-| `isPageReady` | `boolean` | 当前页是否已就绪（内容脚本 / 后台写入） |
-
-- 默认值集中定义在 [`hooks/useStorageConfig.ts`](./hooks/useStorageConfig.ts) 的 `INITIAL_CONFIG`，`STORAGE_KEYS` 由它自动派生
-- `useConfig(keys)` 返回只读响应式 `config` 与 `update()`，Popup / Options 用它读写自己关心的键
-- 内容脚本不依赖 UI 框架：启动时直接 `storage.local.get` 读取配置，之后由 `storage.onChanged` 接收写入通知并重新读取
-- **历史记录**：`latestHistory`（自动，20 条）、`pinnedHistory`（手动，20 条）
-
----
-
-## 💻 开发指南
-
-### 环境要求
-
-- [Bun](https://bun.sh) ≥ 1.x（包管理 / 构建）
-- Node.js（WXT 依赖）
-
-### 安装依赖
+## 💻 开发
 
 ```bash
-bun install
+bun install      # 安装依赖
+bun dev          # 开发模式（Chrome）
+bun build        # 构建生产包
+bun compile      # 类型检查
+bun zip          # 生成发布包
 ```
 
-### 常用命令
+## 📄 说明
 
-| 命令 | 说明 |
-| --- | --- |
-| `bun dev` | 开发模式（Chrome，热更新） |
-| `bun dev:edge` | 开发模式（Edge） |
-| `bun dev:firefox` | 开发模式（Firefox） |
-| `bun build` | 构建生产包（Chrome） |
-| `bun build:firefox` | 构建 Firefox 包 |
-| `bun compile` | TypeScript 类型检查（`tsc --noEmit`） |
-| `bun zip` / `bun zip:firefox` | 生成发布用 zip 包 |
-
-### 本地安装扩展（开发加载）
-
-1. 运行 `bun build`（或 `bun dev`）
-2. 浏览器进入扩展管理页：
-   - Chrome / Edge：`chrome://extensions` / `edge://extensions`，开启"开发者模式"，选择「加载已解压的扩展程序」，指向 `.output/chrome-mv3`（或 `edge-mv3`）
-   - Firefox：`about:debugging#/runtime/this-firefox`，选择「临时载入附加组件」，载入 `.output/firefox-mv3/manifest.json`
-3. 打开任意 B 站合集视频验证效果
-
----
-
-## 📦 发布流程
-
-版本管理基于 [Changesets](https://github.com/changesets/changesets)，发布工作流见 `.github/workflows/release.yml`：
-
-```bash
-bun change     # 生成变更集
-bun version    # 应用版本号并更新 CHANGELOG
-bun run release # 构建 Firefox/Edge 包并提交到商店
-```
-
-- 推送 `package.json` 版本变更到 `main` 分支后，GitHub Actions 会自动构建并发布到 **Firefox Add-ons** 与 **Edge Add-ons**（需在仓库 Secrets 中配置对应商店密钥）
-- 同时自动创建 GitHub Release，附带各浏览器 zip 与源码包
-
----
-
-## ❓ 常见问题
-
-**Q：打开合集视频后插件没有反应？**
-A：确认 Popup 中状态徽章显示"已就绪"。若显示"未启动"，请刷新页面，并确认该视频确实是合集（右侧有选集列表）。
-
-**Q：切集点总是提前或延后？**
-A：切集点依赖每集的剪切点一致。若各集时长不一，可适当调整时间点并留出少量提前量。
-
-**Q：切换标签页后图标仍是灰色？**
-A：图标状态随当前活动标签页实时检测。停留片刻让后台完成 PING 检测即可。
-
-**Q：刷新后之前的设置还在吗？**
-A：在的。自动存档会在打开合集时恢复之前的 OP 跳转与切集配置；手动存档可随时点击恢复。
-
----
-
-## 📄 项目说明
-
-- **已知局限**：切集点较依赖合集剪切点的整齐度；各集删减不一致时需要手动微调时间点
-- 本项目仅供**学习与交流**使用，请勿用于任何商业用途
-- © 2026 [BilibiliMovieControl](https://github.com/BilibiliMovieControl) 项目组
+- 本项目仅供学习与交流使用，请勿用于任何商业用途
 - 仓库地址：<https://github.com/sanguogege/BilibiliMovieControl>

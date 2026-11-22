@@ -12,10 +12,22 @@ export interface TimePoint {
     s: number; // 秒
 }
 
-export interface TimeRange {
-    id: string; // 唯一标识，用于列表渲染和删除逻辑
-    start: TimePoint; // 起始时间
-    end: TimePoint; // 结束时间
+// ============================================================
+// 片段（统一模型）
+// ============================================================
+
+/** skip = OP 跳过；next = 到点切换下一 P */
+export type SegmentKind = "skip" | "next";
+
+/** manual = 用户手动设置；api = 从 BilibiliSponsorBlock 查到或提交后返回的 */
+export type SegmentSource = "manual" | "api";
+
+export interface SkipSegment {
+    id: string;
+    start: number; // 秒
+    end: number; // 秒；next 类型 end <= start 表示"到视频结尾"
+    kind: SegmentKind;
+    source: SegmentSource;
 }
 
 // ============================================================
@@ -23,12 +35,10 @@ export interface TimeRange {
 // ============================================================
 
 export interface Config {
-    opRanges: TimeRange[]; // 跳过列表
-    jumpConfig: TimePoint; // 切集点
+    segments: SkipSegment[];
 }
 
-/** 内容脚本只关心这两项配置 */
-export type ContentConfig = Pick<Config, "opRanges" | "jumpConfig">;
+export type ContentConfig = Config;
 
 // ============================================================
 // 历史记录
@@ -61,16 +71,14 @@ export interface HistorySnapshot {
     id?: number;
     title: string;
     url: string;
-    opRanges: TimeRange[];
-    jumpConfig: TimePoint;
+    segments: SkipSegment[];
 }
 
 // ============================================================
 // 页面内悬浮条
 // ============================================================
 
-/** 悬浮条只关心这两项配置 */
-export type VideoUIConfig = Pick<Config, "opRanges" | "jumpConfig">;
+export type VideoUIConfig = Config;
 
 export interface VideoUIHandle {
     update: (config: VideoUIConfig) => void;
@@ -83,14 +91,33 @@ export interface VideoUIHandle {
 
 export type JumpPanelTab = "view" | "submit";
 
-/** 浮动窗口只关心这两项配置 */
-export type JumpPanelConfig = Pick<Config, "opRanges" | "jumpConfig">;
+export type JumpPanelConfig = Config;
 
 export interface JumpPanelHandle {
     open: (tab?: JumpPanelTab) => void;
     close: () => void;
     update: (config: JumpPanelConfig) => void;
     destroy: () => void;
+}
+
+/** 提交页交给外层（content）的数据 */
+export interface JumpPanelSubmitPayload {
+    bvid: string;
+    videoDuration: number;
+    userID: string;
+    segments: SubmitSegmentInput[];
+}
+
+export interface JumpPanelHandlers {
+    onSubmit: (payload: JumpPanelSubmitPayload) => Promise<SubmitResult>;
+    /** 新增或更新一个手动片段（按 id upsert） */
+    onSaveSegment: (segment: SkipSegment) => Promise<void>;
+    onDeleteSegment: (id: string) => Promise<void>;
+    onSeek: (seconds: number) => void;
+    /** 临时把片段注入播放判断，预览一次 */
+    onPreview: (segment: SkipSegment) => void;
+    getCurrentTime: () => number;
+    getDuration: () => number;
 }
 
 export interface ActionButtonHandlers {
@@ -123,12 +150,6 @@ export interface TimeInputDraft {
     h: string;
     m: string;
     s: string;
-}
-
-export interface TimeRangeManagerProps {
-    ranges: TimeRange[];
-    onUpdate: (newConfig: { opRanges: TimeRange[] }) => void;
-    onClose: () => void;
 }
 
 // ============================================================

@@ -85,8 +85,7 @@ export default function HistoryPage() {
                                     {item.title}
                                 </div>
                                 <div class="flex gap-5 text-sm text-base-content/70">
-                                    <span>⏱️ 切集点: {item.jumpConfig?.m ?? 0}分{item.jumpConfig?.s ?? 0}秒</span>
-                                    <span>⏭️ 跳过 {item.opRanges?.length ?? 0} 段</span>
+                                    <span>⏱️ 片段: {item.segments?.length ?? 0} 个</span>
                                     <span>📅 记录于: {new Date(item.time).toLocaleString()}</span>
                                 </div>
                             </div>

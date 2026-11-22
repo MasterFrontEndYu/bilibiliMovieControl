@@ -29,9 +29,15 @@ export default defineBackground(() => {
                 ).then(sendResponse);
                 return true;
 
-            case "SB_SUBMIT":
-                submitSkipSegments(message.data).then(sendResponse);
+            case "SB_SUBMIT": {
+                const data = message.data;
+                if (!data || typeof data !== "object") {
+                    sendResponse({ ok: false, reason: "bad-request" });
+                    return true;
+                }
+                submitSkipSegments(data).then(sendResponse);
                 return true;
+            }
         }
     });
 

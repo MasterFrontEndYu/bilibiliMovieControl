@@ -87,11 +87,7 @@ export default function ManualPage() {
                                 </div>
                                 <div class="flex gap-5 text-sm text-base-content/70">
                                     <span>
-                                        ⏱️ 切集点: {item.jumpConfig?.m ?? 0}分
-                                        {item.jumpConfig?.s ?? 0}秒
-                                    </span>
-                                    <span>
-                                        ⏭️ 跳过 {item.opRanges?.length ?? 0} 段
+                                        ⏱️ 片段: {item.segments?.length ?? 0} 个
                                     </span>
                                     <span>
                                         📅 记录于:{" "}
@@ -137,7 +133,7 @@ export default function ManualPage() {
             <div class="mt-8 p-4 bg-info/10 border border-info/20 rounded-xl flex gap-2.5 items-start">
                 <p class="m-0 text-xs text-base-content/70 leading-relaxed">
                     <b>关于手动存档：</b>
-                    用户可以在视频播放过程中点击插件图标，选择“手动存档”来保存当前的跳过配置和视频信息，以便下次直接使用。
+                    用户可以在视频播放过程中点击插件图标，选择“手动存档”来保存当前的片段配置和视频信息，以便下次直接使用。
                     Options 页面会保留最近的 {MAX_HISTORY_LENGTH} 条记录。
                     但popup页面只会显示最新的 {PINNED_HISTORY_LENGTH} 条记录
                 </p>

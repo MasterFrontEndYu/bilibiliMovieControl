@@ -12,6 +12,14 @@ export const BTN_CLASS = ".bpx-player-ctrl-next";
 export const TARGET_ID = "viewbox_report";
 
 /**
+ * 从 B 站视频页 URL 中提取 BV 号
+ */
+export const getBvidFromUrl = (url: string): string | null => {
+    const match = url.match(/\/video\/(BV[0-9A-Za-z]{10})/);
+    return match?.[1] ?? null;
+};
+
+/**
  * 获取当前页面的活动标签页信息
  */
 export const getActiveTab = async () => {

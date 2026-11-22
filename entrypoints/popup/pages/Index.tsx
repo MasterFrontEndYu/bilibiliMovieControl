@@ -1,6 +1,5 @@
 // entrypoints/popup/App.tsx
 import { createSignal, onSettled } from "solid-js";
-import { TimeInput } from "@/components/TimeInput";
 import { HistoryList } from "@/components/HistoryList";
 import { browser } from "wxt/browser";
 import {
@@ -11,25 +10,23 @@ import {
 import type { HistoryConfig } from "@/types/types";
 import { useConfig, initGlobalConfig } from "@/hooks/useStorageConfig";
 import { useNavigate } from "@solidjs/router";
-import { RotateCcw, RotateCwClock, SaveCheck, Settings } from '@lucide/solid';
+import { RotateCwClock, SaveCheck, Settings } from "@lucide/solid";
 
 export default function Index() {
-    const { config, update } = useConfig(["jumpConfig", "opRanges"]);
+    const { config } = useConfig(["segments"]);
 
     const [latestHistory, setLatestHistory] = createSignal<HistoryConfig[]>([]);
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
 
     const navigate = useNavigate();
 
-    /**
-     * 重置切集点
-     */
-    const resetJumpPoint = () => {
-        update({ jumpConfig: { h: 0, m: 0, s: 0 } });
-    };
+    const skipCount = () =>
+        config.segments.filter((segment) => segment.kind === "skip").length;
+    const nextCount = () =>
+        config.segments.filter((segment) => segment.kind === "next").length;
 
     /**
-     * 存档逻辑：将当前配置存入历史记录
+     * 存档逻辑：将当前片段配置存入历史记录
      */
     const handleArchive = async () => {
         const activeTab = await getActiveTab();
@@ -44,8 +41,7 @@ export default function Index() {
                     url: activeTab.url,
                 },
                 config: {
-                    opRanges: config.opRanges,
-                    jumpConfig: config.jumpConfig,
+                    segments: config.segments,
                 },
             },
         });
@@ -64,7 +60,6 @@ export default function Index() {
 
     /**
      * 打开「多 OP 跳转时间段」独立页面
-     * TODO: 等你把 TimeRangeManager 挪到独立页面后，改成真实 URL，例如 "/time-range.html"
      */
     const openTimeRangePage = () => {
         navigate("/open");
@@ -108,20 +103,21 @@ export default function Index() {
                 管理多个跳过时间段
             </button>
 
-            <div class="divider m-0">设置视频集合跳转</div>
+            <div class="divider m-0">片段概览</div>
 
-            <div class="flex flex-col gap-2.5">
-                <TimeInput
-                    label="切&emsp;集"
-                    value={config.jumpConfig}
-                    onChange={(next) => update({ jumpConfig: next })}
-                />
+            <div class="bg-base-200/60 rounded-xl p-3 text-xs text-base-content/70 flex flex-col gap-1">
+                <div class="flex justify-between">
+                    <span>OP 跳过</span>
+                    <span class="font-mono">{skipCount()} 个</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>下一 P</span>
+                    <span class="font-mono">{nextCount()} 个</span>
+                </div>
+                <div class="text-base-content/45 mt-1">
+                    在播放页点「查看」可新增、编辑、删除片段
+                </div>
             </div>
-
-            <button class="btn btn-warning btn-sm w-full" onClick={resetJumpPoint}>
-                <RotateCcw size={12} />
-                重置
-            </button>
 
             <HistoryList
                 items={latestHistory()}

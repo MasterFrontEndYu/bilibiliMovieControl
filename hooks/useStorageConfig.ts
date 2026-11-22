@@ -1,17 +1,16 @@
 import { createStore } from "solid-js";
 import { browser } from "wxt/browser";
 import type { Config } from "@/types/types";
+import { loadSegments } from "@/utils/segments";
 
 const INITIAL_CONFIG: Config = {
-    opRanges: [],
-    jumpConfig: { h: 0, m: 0, s: 0 },
+    segments: [],
 };
 
 export const STORAGE_KEYS = Object.keys(INITIAL_CONFIG) as (keyof Config)[];
 
 // ---- 模块级全局 store（每个上下文各有一份） ----
-const [globalConfig, setGlobalConfig] =
-    createStore<Config>(INITIAL_CONFIG);
+const [globalConfig, setGlobalConfig] = createStore<Config>(INITIAL_CONFIG);
 
 // 初始化只跑一次（幂等）
 let initPromise: Promise<void> | null = null;
@@ -19,11 +18,8 @@ let initPromise: Promise<void> | null = null;
 export const initGlobalConfig = () => {
     if (initPromise) return initPromise;
     initPromise = (async () => {
-        const res = await browser.storage.local.get(STORAGE_KEYS as string[]);
-        setGlobalConfig((prev) => ({
-            ...prev,
-            ...(res as Partial<Config>),
-        }));
+        const segments = await loadSegments();
+        setGlobalConfig((prev) => ({ ...prev, segments }));
     })();
     return initPromise;
 };
@@ -41,7 +37,7 @@ browser.storage.onChanged.addListener((changes, area) => {
     setGlobalConfig((prev) => ({ ...prev, ...patch }));
 });
 
-// ---- 按 keys 返回的 hook（与之前完全一致） ----
+// ---- 按 keys 返回的 hook ----
 export function useConfig<K extends keyof Config>(keys: K[]) {
     void initGlobalConfig();
 

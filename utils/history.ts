@@ -4,12 +4,12 @@ import {
     getCollectionTitle,
     MAX_HISTORY_LENGTH,
 } from "@/utils/bilibili";
+import { loadSegments } from "@/utils/segments";
 import type {
     HistoryConfig,
     HistoryKind,
     HistorySnapshot,
-    TimePoint,
-    TimeRange,
+    SkipSegment,
 } from "@/types/types";
 
 const HISTORY_STORAGE_KEY: Record<HistoryKind, string> = {
@@ -58,8 +58,7 @@ export async function upsertHistory(
         title: snapshot.title,
         url,
         time: Date.now(),
-        opRanges: snapshot.opRanges,
-        jumpConfig: snapshot.jumpConfig,
+        segments: snapshot.segments,
     };
 
     const next = [
@@ -77,7 +76,7 @@ export async function upsertHistory(
  */
 export async function archiveManual(
     tab: { id: number; url?: string },
-    config: { opRanges: TimeRange[]; jumpConfig: TimePoint },
+    config: { segments: SkipSegment[] },
 ): Promise<HistoryConfig[] | undefined> {
     const title = await getCollectionTitle(tab.id);
     if (!title) return;
@@ -86,8 +85,7 @@ export async function archiveManual(
         id: tab.id,
         title,
         url: tab.url ?? "",
-        opRanges: config.opRanges,
-        jumpConfig: config.jumpConfig,
+        segments: config.segments,
     });
 
     return list.slice(0, 3);
@@ -103,16 +101,12 @@ export async function archiveLatest(
     const title = await getCollectionTitle(tabId);
     if (!title) return;
 
-    const stored = await browser.storage.local.get({
-        opRanges: [],
-        jumpConfig: { h: 0, m: 0, s: 0 },
-    });
+    const segments = await loadSegments();
 
     await upsertHistory("latest", {
         id: tabId,
         title,
         url,
-        opRanges: stored.opRanges as TimeRange[],
-        jumpConfig: stored.jumpConfig as TimePoint,
+        segments,
     });
 }
