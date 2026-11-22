@@ -170,7 +170,7 @@ BilibiliMovieControl/
 │   ├── bilibili.ts            # B 站工具：URL 清洗、合集标题、视频元素、时间换算
 │   └── videoUI.ts             # 页面内悬浮状态条（原生 DOM）
 ├── types/
-│   └── types.ts               # 类型定义（TimePoint / TimeRange / 配置 / 历史记录）
+│   └── types.ts               # 全部共享类型（时间 / 配置 / 历史 / 组件 props）
 ├── modules/
 │   └── solid.ts               # 自定义 WXT 模块：接入 @solidjs/vite-plugin
 ├── assets/

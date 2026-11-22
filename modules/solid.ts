@@ -1,6 +1,7 @@
 import "wxt";
 import { addImportPreset, addViteConfig, defineWxtModule } from "wxt/modules";
-import solid, { type Options as PluginOptions } from "@solidjs/vite-plugin";
+import solid from "@solidjs/vite-plugin";
+import type { SolidModuleOptions } from "@/types/types";
 
 export default defineWxtModule<SolidModuleOptions>({
   name: "solid-v2",
@@ -30,13 +31,3 @@ export default defineWxtModule<SolidModuleOptions>({
     });
   },
 });
-
-export interface SolidModuleOptions {
-  vite?: PluginOptions;
-}
-
-declare module "wxt" {
-  export interface InlineConfig {
-    solid?: SolidModuleOptions;
-  }
-}

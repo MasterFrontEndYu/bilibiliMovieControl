@@ -6,17 +6,7 @@ import {
     For,
     type Component,
 } from "solid-js";
-
-export type TimeValue = { h: number; m: number; s: number };
-
-interface TimeInputProps {
-    label: string;
-    value: TimeValue;
-    onChange: (next: TimeValue) => void;
-    delay?: number;
-}
-
-type Draft = { h: string; m: string; s: string };
+import type { TimeInputDraft, TimeInputProps, TimeValue } from "@/types/types";
 
 const parse = (s: string) => {
     const n = parseInt(s, 10);
@@ -34,7 +24,7 @@ const FIELDS = [
 export const TimeInput: Component<TimeInputProps> = (props) => {
     const delay = () => props.delay ?? 300;
 
-    const [draft, setDraft] = createSignal<Draft>({
+    const [draft, setDraft] = createSignal<TimeInputDraft>({
         h: String(props.value.h),
         m: String(props.value.m),
         s: String(props.value.s),
@@ -99,7 +89,7 @@ export const TimeInput: Component<TimeInputProps> = (props) => {
     });
 
     const onInput =
-        (field: keyof Draft) =>
+        (field: keyof TimeInputDraft) =>
             (e: InputEvent & { currentTarget: HTMLInputElement }) => {
                 setDraft((prev) => ({ ...prev, [field]: e.currentTarget.value }));
                 schedule();

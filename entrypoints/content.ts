@@ -7,11 +7,13 @@ import {
     TARGET_ID,
     BTN_CLASS,
 } from "@/utils/bilibili";
-import type { BiliVideoConfig, TimePoint, TimeRange } from "@/types/types";
-import { createVideoUI, type VideoUIHandle } from "@/utils/videoUI";
-
-/** content 只需要这两项配置 */
-type ContentConfig = Pick<BiliVideoConfig, "opRanges" | "jumpConfig">;
+import type {
+    ContentConfig,
+    TimePoint,
+    TimeRange,
+    VideoUIHandle,
+} from "@/types/types";
+import { createVideoUI } from "@/utils/videoUI";
 
 const DEFAULT_CONFIG: ContentConfig = {
     opRanges: [],

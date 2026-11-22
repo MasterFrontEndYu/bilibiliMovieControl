@@ -1,25 +1,23 @@
 // entrypoints/time-range/App.tsx
 import { createSignal, For } from "solid-js";
 import { TimeInput } from "@/components/TimeInput";
-import type { TimeRange } from "@/types/types";
+import type { TimePoint, TimeRange } from "@/types/types";
 import { formatTime } from "@/utils/bilibili";
 import { useConfig } from "@/hooks/useStorageConfig";
 import { CircleX, Clock, RotateCcw, SaveCheck, Trash } from "@lucide/solid";
 import { useNavigate } from "@solidjs/router";
 
 
-type TimeParts = { h: number; m: number; s: number };
-
-const ZERO: TimeParts = { h: 0, m: 0, s: 0 };
-const toSec = (t: TimeParts) => t.h * 3600 + t.m * 60 + t.s;
+const ZERO: TimePoint = { h: 0, m: 0, s: 0 };
+const toSec = (t: TimePoint) => t.h * 3600 + t.m * 60 + t.s;
 
 export default function Open() {
     const { config, update } = useConfig(["opRanges"]);
 
     // 编辑区状态
     const [currentId, setCurrentId] = createSignal<string | null>(null);
-    const [currentStart, setCurrentStart] = createSignal<TimeParts>({ ...ZERO });
-    const [currentEnd, setCurrentEnd] = createSignal<TimeParts>({ ...ZERO });
+    const [currentStart, setCurrentStart] = createSignal<TimePoint>({ ...ZERO });
+    const [currentEnd, setCurrentEnd] = createSignal<TimePoint>({ ...ZERO });
     const [error, setError] = createSignal("");
 
     const navigate = useNavigate();

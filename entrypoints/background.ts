@@ -4,27 +4,21 @@ import {
     getCollectionTitle,
     MAX_HISTORY_LENGTH,
 } from "@/utils/bilibili";
-import type { HistoryConfig, TimePoint, TimeRange } from "@/types/types";
+import type {
+    HistoryConfig,
+    HistoryKind,
+    HistorySnapshot,
+    TimePoint,
+    TimeRange,
+} from "@/types/types";
 
 const DEBOUNCE_TIME = 2000;
 const processedLogs = new Map<string, number>();
-
-/** 历史归档类型：latest = 自动存档，pinned = 手动存档 */
-type HistoryKind = "latest" | "pinned";
 
 const HISTORY_STORAGE_KEY: Record<HistoryKind, string> = {
     latest: "latestHistory",
     pinned: "pinnedHistory",
 };
-
-/** 两种存档共用的快照字段 */
-interface HistorySnapshot {
-    id?: number;
-    title: string;
-    url: string;
-    opRanges: TimeRange[];
-    jumpConfig: TimePoint;
-}
 
 /**
  * 自动存档 / 手动存档共用的落库逻辑：

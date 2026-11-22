@@ -1,13 +1,5 @@
 import { formatTime, toSeconds } from "@/utils/bilibili";
-import type { BiliVideoConfig } from "@/types/types";
-
-/** 悬浮条只关心这两项配置 */
-type VideoUIConfig = Pick<BiliVideoConfig, "opRanges" | "jumpConfig">;
-
-export interface VideoUIHandle {
-    update: (config: VideoUIConfig) => void;
-    destroy: () => void;
-}
+import type { VideoUIConfig, VideoUIHandle } from "@/types/types";
 
 const BADGE_STYLE =
     "display:inline-flex;align-items:center;gap:8px;padding:0 12px;color:#fff;" +
