@@ -6,34 +6,29 @@
  *
  * 用法：
  *   node scripts/check-bsbsb-submission.mjs <视频URL或BV号>
- *   node scripts/check-bsbsb-submission.mjs BV1M4sz6sEcu --test
  *   node scripts/check-bsbsb-submission.mjs BV1M4sz6sEcu --uuid <片段UUID>
  *   node scripts/check-bsbsb-submission.mjs BV1M4sz6sEcu --json
  *
  * 参数：
- *   --test      查询测试环境（https://bsbsb.top/test/api），默认正式环境
  *   --uuid ID   额外查询某个片段的详细信息（segmentInfo）
  *   --json      输出原始 JSON，便于排查
  *
+ * 固定查询正式环境（https://bsbsb.top/api），因为插件上传也走正式环境。
  * 只调用 GET 接口，不会提交、修改或删除任何数据。
  */
 
 const PRODUCTION_BASE = "https://bsbsb.top/api";
-const TEST_BASE = "https://bsbsb.top/test/api";
 const TIMEOUT_MS = 15000;
 
 let input = "";
 let uuid = "";
-let useTest = false;
 let jsonMode = false;
 
 const args = process.argv.slice(2);
 for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
 
-    if (arg === "--test") {
-        useTest = true;
-    } else if (arg === "--json") {
+    if (arg === "--json") {
         jsonMode = true;
     } else if (arg === "--uuid") {
         uuid = args[index + 1] ?? "";
@@ -44,7 +39,7 @@ for (let index = 0; index < args.length; index += 1) {
 }
 
 if (!input) {
-    console.log(`用法: node scripts/check-bsbsb-submission.mjs <视频URL或BV号> [--test] [--uuid <UUID>] [--json]`);
+    console.log(`用法: node scripts/check-bsbsb-submission.mjs <视频URL或BV号> [--uuid <UUID>] [--json]`);
     process.exit(1);
 }
 
@@ -55,7 +50,7 @@ if (!match) {
 }
 
 const bvid = match[0];
-const base = useTest ? TEST_BASE : PRODUCTION_BASE;
+const base = PRODUCTION_BASE;
 
 const formatTime = (seconds) => {
     const total = Math.max(0, Math.round(Number(seconds) || 0));
@@ -112,7 +107,7 @@ const searchUrl = `${base}/searchSegments?videoID=${encodeURIComponent(bvid)}`;
 
 try {
     console.log(`视频: ${bvid}`);
-    console.log(`环境: ${useTest ? "测试" : "正式"} (${base})`);
+    console.log(`环境: 正式 (${base})`);
     console.log("");
 
     const publicResult = await fetchJson(publicUrl);
@@ -129,7 +124,9 @@ try {
         console.log("=== searchSegments ===");
         console.log(JSON.stringify(searchResult.data, null, 2));
     } else {
-        console.log(`公开片段（skipSegments，能被播放器使用）: ${publicSegments.length}`);
+        console.log(
+            `公开片段（skipSegments，服务端公开返回）: ${publicSegments.length}`,
+        );
         if (publicResult.status === 404) {
             console.log("  接口返回 404：该视频暂无公开片段");
         } else if (publicSegments.length === 0) {
@@ -194,7 +191,8 @@ try {
 
     console.log("");
     console.log("说明：");
-    console.log("  - 公开片段（skipSegments）能直接出现在播放器的跳转逻辑里");
+    console.log("  - 公开片段（skipSegments）是其他 SponsorBlock 客户端会采用的片段");
+    console.log("  - 本插件目前只把它展示在「查看」里，是否参与跳转取决于融合逻辑");
     console.log("  - 刚提交的片段可能只出现在 searchSegments 里，状态为隐藏/暗藏时通常还在审核");
     console.log("  - 两个接口都没有，可能是提交失败、未入库，或查询了错误的环境（--test）");
 } catch (error) {

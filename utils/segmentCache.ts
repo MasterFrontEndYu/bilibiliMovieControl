@@ -1,7 +1,7 @@
 import { browser } from "wxt/browser";
 import type { ApiSegment } from "@/types/types";
 
-const CACHE_STORAGE_KEY = "sbSegmentCache";
+const CACHE_STORAGE_KEY = "sbSegmentCacheV2";
 const MAX_CACHE_ENTRIES = 100;
 
 interface SegmentCacheEntry {
@@ -38,6 +38,29 @@ export async function readCachedSegments(
     const entry = cache[key];
     if (!entry || entry.expiresAt <= now) return null;
     return entry.segments ?? null;
+}
+
+/**
+ * 清掉某个 BVID 相关的缓存（上传成功后调用，避免继续读到旧的空结果）
+ */
+export async function invalidateCachedSegments(bvid: string): Promise<void> {
+    try {
+        const cache = await readCache();
+        let changed = false;
+
+        for (const key of Object.keys(cache)) {
+            if (key === bvid || key.startsWith(`${bvid}:`)) {
+                delete cache[key];
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            await browser.storage.local.set({ [CACHE_STORAGE_KEY]: cache });
+        }
+    } catch {
+        // 忽略：缓存失效失败不影响主流程
+    }
 }
 
 /**

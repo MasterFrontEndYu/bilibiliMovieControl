@@ -1,7 +1,12 @@
 import { browser } from "wxt/browser";
 import { cleanBiliUrl } from "@/utils/bilibili";
 import { allowArchive, archiveLatest, archiveManual } from "@/utils/history";
-import { getSkipSegments, submitSkipSegments } from "@/utils/sponsorblock";
+import { invalidateCachedSegments } from "@/utils/segmentCache";
+import {
+    getSkipSegments,
+    resolveVideoPage,
+    submitSkipSegments,
+} from "@/utils/sponsorblock";
 
 /** 页面加载后等待多久再记录自动存档 */
 const ARCHIVE_DELAY_MS = 4000;
@@ -22,12 +27,24 @@ export default defineBackground(() => {
                 );
                 return true; // 保持异步通道
 
-            case "SB_LOOKUP":
-                getSkipSegments(
-                    message.data?.bvid,
-                    message.data?.cid,
-                ).then(sendResponse);
+            case "SB_LOOKUP": {
+                const data = message.data ?? {};
+                void (async () => {
+                    let cid = data.cid as string | undefined;
+
+                    // 未传 cid 时按分P 解析，避免拿到其他分P 的片段
+                    if (!cid && data.page) {
+                        const pageInfo = await resolveVideoPage(
+                            data.bvid,
+                            Number(data.page),
+                        );
+                        cid = pageInfo?.cid;
+                    }
+
+                    sendResponse(await getSkipSegments(data.bvid, cid));
+                })();
                 return true;
+            }
 
             case "SB_SUBMIT": {
                 const data = message.data;
@@ -35,7 +52,13 @@ export default defineBackground(() => {
                     sendResponse({ ok: false, reason: "bad-request" });
                     return true;
                 }
-                submitSkipSegments(data).then(sendResponse);
+                submitSkipSegments(data).then(async (result) => {
+                    if (result.ok && typeof data.bvid === "string") {
+                        // 上传成功后清掉旧缓存，内容脚本/面板重新拉取时能拿到新片段
+                        await invalidateCachedSegments(data.bvid);
+                    }
+                    sendResponse(result);
+                });
                 return true;
             }
         }

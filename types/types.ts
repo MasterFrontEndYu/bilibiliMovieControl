@@ -36,6 +36,8 @@ export interface SkipSegment {
 
 export interface Config {
     segments: SkipSegment[];
+    /** 是否把云端片段并入播放判断 */
+    useCloudSegments: boolean;
 }
 
 export type ContentConfig = Config;
@@ -44,7 +46,7 @@ export type ContentConfig = Config;
 // 历史记录
 // ============================================================
 
-export interface HistoryConfig extends Config {
+export interface HistoryConfig extends Omit<Config, "useCloudSegments"> {
     id: number;
     title: string;
     url: string;
@@ -81,7 +83,7 @@ export interface HistorySnapshot {
 export type VideoUIConfig = Config;
 
 export interface VideoUIHandle {
-    update: (config: VideoUIConfig) => void;
+    update: (config: VideoUIConfig, cloudSegments?: SkipSegment[]) => void;
     destroy: () => void;
 }
 
@@ -110,6 +112,8 @@ export interface JumpPanelSubmitPayload {
 
 export interface JumpPanelHandlers {
     onSubmit: (payload: JumpPanelSubmitPayload) => Promise<SubmitResult>;
+    /** 上传成功后通知外层刷新云端片段 */
+    onUploaded?: () => void;
     /** 新增或更新一个手动片段（按 id upsert） */
     onSaveSegment: (segment: SkipSegment) => Promise<void>;
     onDeleteSegment: (id: string) => Promise<void>;

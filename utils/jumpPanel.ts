@@ -513,7 +513,6 @@ export function createJumpPanel(
         });
 
         const kindSelect = document.createElement("select");
-        kindSelect.disabled = !isEditing();
         for (const kind of ["skip", "next"] as const) {
             const option = document.createElement("option");
             option.value = kind;
@@ -523,6 +522,36 @@ export function createJumpPanel(
         }
         kindSelect.addEventListener("change", () => {
             editKind = kindSelect.value === "next" ? "next" : "skip";
+
+            const selected = findSegment(selectedId);
+            const isDraft = editId === null;
+
+            // 未在编辑，或正在编辑一个新的草稿：切换类型时自动填入起止
+            if (!isEditing() || isDraft) {
+                editingStart = true;
+                editingEnd = true;
+
+                if (selected && !isEditing()) {
+                    editStartText = formatSeconds(selected.start);
+                    editEndText = endTextFor(selected);
+                } else {
+                    const start = handlers.getCurrentTime();
+                    editStartText = formatSeconds(start);
+
+                    const duration = videoDuration();
+                    const end =
+                        editKind === "next" && duration > 0
+                            ? duration
+                            : Math.min(
+                                  start + 20,
+                                  duration > 0 ? duration : start + 20,
+                              );
+
+                    editEndText = formatSeconds(Math.max(start + 1, end));
+                }
+
+                render();
+            }
         });
 
         const endInput = document.createElement("input");
@@ -695,12 +724,19 @@ export function createJumpPanel(
             }
         }
 
-        fragment.append(sectionHeader("云端片段", `${apiSegments.length} 个`));
-        if (apiSegments.length === 0) {
-            fragment.append(emptyHint("暂无云端片段"));
+        if (!currentConfig.useCloudSegments) {
+            fragment.append(sectionHeader("云端片段", "已关闭"));
+            fragment.append(emptyHint("云端片段已关闭，可在设置页开启"));
         } else {
-            for (const segment of apiSegments) {
-                fragment.append(renderSegmentRow(segment));
+            fragment.append(
+                sectionHeader("云端片段", `${apiSegments.length} 个`),
+            );
+            if (apiSegments.length === 0) {
+                fragment.append(emptyHint("暂无云端片段"));
+            } else {
+                for (const segment of apiSegments) {
+                    fragment.append(renderSegmentRow(segment));
+                }
             }
         }
 
@@ -794,6 +830,7 @@ export function createJumpPanel(
                     "success",
                 );
                 mergeCreatedSegments(result.created);
+                handlers.onUploaded?.();
             } else {
                 const reason = result.reason ?? "";
                 const base =
@@ -884,37 +921,42 @@ export function createJumpPanel(
         });
         wrapper.append(newRow);
 
-        wrapper.append(sectionHeader("私人 ID"));
+        if (currentConfig.useCloudSegments) {
+            wrapper.append(sectionHeader("私人 ID"));
 
-        const input = document.createElement("input");
-        input.className = "bmc-input";
-        input.type = "password";
-        input.autocomplete = "off";
-        input.spellcheck = false;
-        input.placeholder = `至少 ${MIN_USER_ID_LENGTH} 个字符`;
-        input.value = userID;
-        input.addEventListener("input", () => {
-            userID = input.value.trim();
-        });
-        wrapper.append(input);
+            const input = document.createElement("input");
+            input.className = "bmc-input";
+            input.type = "password";
+            input.autocomplete = "off";
+            input.spellcheck = false;
+            input.placeholder = `至少 ${MIN_USER_ID_LENGTH} 个字符`;
+            input.value = userID;
+            input.addEventListener("input", () => {
+                userID = input.value.trim();
+            });
+            wrapper.append(input);
 
-        const idHint = document.createElement("div");
-        idHint.className = "bmc-hint";
-        idHint.textContent =
-            "首次使用会自动生成并保存在本地；也可以替换成你已有的私人 ID。此ID仅用于标识上传者，服务端不会收集其他信息。";
-        wrapper.append(idHint);
+            const idHint = document.createElement("div");
+            idHint.className = "bmc-hint";
+            idHint.textContent =
+                "首次使用会自动生成并保存在本地；也可以替换成你已有的私人 ID。此ID仅用于标识上传者，服务端不会收集其他信息。";
+            wrapper.append(idHint);
 
-        const submitButton = document.createElement("button");
-        submitButton.type = "button";
-        submitButton.className = "bmc-submit";
-        submitButton.textContent = submitting ? "上传中…" : "上传到 bsbsb.top";
-        submitButton.disabled = submitting;
+            const submitButton = document.createElement("button");
+            submitButton.type = "button";
+            submitButton.className = "bmc-submit";
+            submitButton.textContent = submitting
+                ? "上传中…"
+                : "上传到 bsbsb.top";
+            submitButton.disabled = submitting;
 
-        submitButton.addEventListener("click", () => {
-            void handleSubmit(submitButton);
-        });
+            submitButton.addEventListener("click", () => {
+                void handleSubmit(submitButton);
+            });
 
-        wrapper.append(submitButton);
+            wrapper.append(submitButton);
+        }
+
         return wrapper;
     };
 
@@ -939,7 +981,9 @@ export function createJumpPanel(
         submitTab.classList.toggle("is-active", tab === "submit");
 
         if (tab === "submit") prepareSubmitTab();
-        if (tab === "view" && !apiLoaded) void loadApiSegments();
+        if (tab === "view" && currentConfig.useCloudSegments && !apiLoaded) {
+            void loadApiSegments();
+        }
         render();
     };
 
@@ -984,6 +1028,12 @@ export function createJumpPanel(
 
     // ---- 云端片段：打开查看页时拉一次 ----
     async function loadApiSegments(): Promise<void> {
+        if (!currentConfig.useCloudSegments) {
+            apiLoaded = false;
+            apiSegments = [];
+            return;
+        }
+
         apiLoaded = true;
 
         const bvid = getBvidFromUrl(location.href);
@@ -992,7 +1042,12 @@ export function createJumpPanel(
         try {
             const result = (await browser.runtime.sendMessage({
                 type: "SB_LOOKUP",
-                data: { bvid },
+                data: {
+                    bvid,
+                    page:
+                        Number(new URL(location.href).searchParams.get("p")) ||
+                        1,
+                },
             })) as { ok?: boolean; segments?: ApiSegment[] } | undefined;
 
             if (!result?.ok || !Array.isArray(result.segments)) return;
@@ -1074,7 +1129,16 @@ export function createJumpPanel(
         open,
         close,
         update: (config) => {
+            const wasEnabled = currentConfig.useCloudSegments;
             currentConfig = config;
+
+            if (!config.useCloudSegments) {
+                apiSegments = [];
+                apiLoaded = false;
+            } else if (!wasEnabled && !panel.hidden && activeTab === "view") {
+                void loadApiSegments();
+            }
+
             if (!panel.hidden) render();
         },
         destroy: () => {

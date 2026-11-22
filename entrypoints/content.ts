@@ -1,9 +1,15 @@
 // entrypoints/content.ts
 // 内容脚本：原生 DOM + 直接读写 storage，不依赖 SolidJS
 import { browser } from "wxt/browser";
-import { getMainVideo, TARGET_ID, BTN_CLASS } from "@/utils/bilibili";
+import {
+    getBvidFromUrl,
+    getMainVideo,
+    TARGET_ID,
+    BTN_CLASS,
+} from "@/utils/bilibili";
 import { loadSegments, saveSegments } from "@/utils/segments";
 import type {
+    ApiSegment,
     ContentConfig,
     JumpPanelHandle,
     JumpPanelSubmitPayload,
@@ -15,7 +21,7 @@ import type {
 import { createActionButtons, createVideoUI } from "@/utils/videoUI";
 import { createJumpPanel } from "@/utils/jumpPanel";
 
-const DEFAULT_CONFIG: ContentConfig = { segments: [] };
+const DEFAULT_CONFIG: ContentConfig = { segments: [], useCloudSegments: true };
 
 export default defineContentScript({
     matches: ["*://*.bilibili.com/video/*"],
@@ -23,16 +29,112 @@ export default defineContentScript({
 
     async main(ctx) {
         // ---------- 1. 配置：片段列表统一存在 storage.segments ----------
-        let config: ContentConfig = { ...DEFAULT_CONFIG, segments: [] };
+        let config: ContentConfig = {
+            ...DEFAULT_CONFIG,
+            segments: [],
+        };
         let uiHandle: VideoUIHandle | null = null;
         let panel: JumpPanelHandle | null = null;
         let panelHost: HTMLElement | null = null;
         let previewRule: SkipSegment | null = null;
 
+        /** 云端片段映射成统一片段（仅用于播放判断） */
+        let cloudSegments: SkipSegment[] = [];
+        let cloudKey = "";
+        let cloudRetryAt = 0;
+
+        const CLOUD_SKIP_CATEGORIES = new Set(["intro", "sponsor", "selfpromo"]);
+
         const loadConfig = async () => {
-            config = { segments: await loadSegments() };
-            uiHandle?.update(config);
+            const stored = await browser.storage.local.get({
+                useCloudSegments: true,
+            });
+
+            config = {
+                segments: await loadSegments(),
+                useCloudSegments: stored.useCloudSegments !== false,
+            };
+
+            if (!config.useCloudSegments) {
+                cloudSegments = [];
+                cloudKey = "";
+                cloudRetryAt = 0;
+            }
+
+            uiHandle?.update(config, cloudSegments);
             panel?.update(config);
+        };
+
+        /** 拉取云端片段并按类别映射成 skip / next */
+        const loadCloudSegments = async () => {
+            if (!config.useCloudSegments) {
+                cloudSegments = [];
+                return;
+            }
+
+            const bvid = getBvidFromUrl(location.href);
+            const video = getVideo();
+            if (!bvid || !video) {
+                cloudSegments = [];
+                return;
+            }
+
+            try {
+                const result = (await browser.runtime.sendMessage({
+                    type: "SB_LOOKUP",
+                    data: {
+                        bvid,
+                        page:
+                            Number(
+                                new URL(location.href).searchParams.get("p"),
+                            ) || 1,
+                    },
+                })) as { ok?: boolean; segments?: ApiSegment[] } | undefined;
+
+                if (!result?.ok || !Array.isArray(result.segments)) {
+                    cloudSegments = [];
+                    // 失败（网络/服务端）5 秒后重试
+                    cloudKey = "";
+                    cloudRetryAt = Date.now() + 5000;
+                    return;
+                }
+
+                cloudRetryAt = 0;
+                const duration = video.duration;
+
+                cloudSegments = result.segments
+                    .filter((segment) => segment.actionType === "skip")
+                    .filter(
+                        (segment) =>
+                            segment.videoDuration <= 0 ||
+                            !Number.isFinite(duration) ||
+                            Math.abs(segment.videoDuration - duration) <= 2,
+                    )
+                    .flatMap((segment): SkipSegment[] => {
+                        const kind =
+                            segment.category === "outro"
+                                ? "next"
+                                : CLOUD_SKIP_CATEGORIES.has(segment.category)
+                                  ? "skip"
+                                  : null;
+
+                        if (!kind) return [];
+
+                        return [
+                            {
+                                id: segment.id,
+                                start: segment.start,
+                                end: segment.end,
+                                kind,
+                                source: "api",
+                            },
+                        ];
+                    });
+            } catch {
+                cloudSegments = [];
+                cloudKey = "";
+                cloudRetryAt = Date.now() + 5000;
+            }
         };
 
         await loadConfig();
@@ -112,6 +214,14 @@ export default defineContentScript({
                 panel?.destroy();
                 panel = createJumpPanel(host, config, {
                     onSubmit: submitSegments,
+                    onUploaded: () => {
+                        // 上传成功后缓存已被清掉，立即重拉云端片段
+                        cloudKey = "";
+                        cloudRetryAt = 0;
+                        void loadCloudSegments().finally(() => {
+                            uiHandle?.update(config, cloudSegments);
+                        });
+                    },
                     onSaveSegment: saveSegment,
                     onDeleteSegment: deleteSegment,
                     onSeek: seekTo,
@@ -171,7 +281,7 @@ export default defineContentScript({
                 container.append(row);
 
                 uiHandle = createVideoUI(left);
-                uiHandle.update(config);
+                uiHandle.update(config, cloudSegments);
 
                 const actions = createActionButtons(right, {
                     onView: () => openPanel("view"),
@@ -237,17 +347,34 @@ export default defineContentScript({
                 return;
             }
 
+            // 手动片段优先：与手动片段重叠的云端片段直接忽略
+            const cloud = config.useCloudSegments
+                ? cloudSegments.filter(
+                      (segment) =>
+                          !config.segments.some(
+                              (item) =>
+                                  segment.start < item.end &&
+                                  segment.end > item.start,
+                          ),
+                  )
+                : [];
+
+            const effective = [...config.segments, ...cloud];
+
             // OP 跳过
-            for (const segment of config.segments) {
+            for (const segment of effective) {
                 if (segment.kind !== "skip") continue;
                 if (cur >= segment.start && cur < segment.end) {
-                    video.currentTime = segment.end;
+                    video.currentTime = Math.min(
+                        segment.end,
+                        video.duration || segment.end,
+                    );
                     return;
                 }
             }
 
             // 到点切换下一 P
-            for (const segment of config.segments) {
+            for (const segment of effective) {
                 if (segment.kind !== "next") continue;
                 if (segment.start > 0 && cur >= segment.start) {
                     executeJump();
@@ -259,6 +386,31 @@ export default defineContentScript({
         // ---------- 6. 主循环 ----------
         const mainLoop = () => {
             try {
+                const video = getVideo();
+
+                // 视频时长就绪后拉一次云端片段（换 P / 换视频会因 key 变化重拉）
+                if (
+                    config.useCloudSegments &&
+                    video &&
+                    video.readyState >= 2 &&
+                    video.duration > 0
+                ) {
+                    const bvid = getBvidFromUrl(location.href);
+                    const page =
+                        Number(new URL(location.href).searchParams.get("p")) ||
+                        1;
+                    const key = bvid
+                        ? `${bvid}:${page}:${Math.round(video.duration)}`
+                        : "";
+
+                    if (key && key !== cloudKey && Date.now() >= cloudRetryAt) {
+                        cloudKey = key;
+                        void loadCloudSegments().finally(() => {
+                            uiHandle?.update(config, cloudSegments);
+                        });
+                    }
+                }
+
                 const isCol = !!document.querySelector(".video-pod");
                 updateUi(isCol);
                 if (isCol) runControlLogic();
@@ -271,7 +423,7 @@ export default defineContentScript({
         // popup / options 写入 storage 后，浏览器通过 onChanged 通知到这里
         const storageListener = (changes: any, area: string) => {
             if (area !== "local") return;
-            if (!changes.segments) return;
+            if (!changes.segments && !changes.useCloudSegments) return;
             void loadConfig();
         };
         browser.storage.onChanged.addListener(storageListener);
@@ -284,6 +436,8 @@ export default defineContentScript({
             lastJumpTime = 0;
             previewRule = null;
             manualSeekGuardUntil = 0;
+            cloudSegments = [];
+            cloudKey = "";
 
             // 换 P / 换视频后 playerWrap 可能被替换，窗口留给下次重新创建
             panel?.destroy();

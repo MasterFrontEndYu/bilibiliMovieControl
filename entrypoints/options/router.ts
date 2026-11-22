@@ -4,6 +4,7 @@ import { lazy } from "solid-js";
 
 import {
     BadgeAlert,
+    Cloud,
     HouseHeart,
     RobotVacuum,
     ScanEye,
@@ -23,6 +24,11 @@ const routes = defineRoutes([
         path: "/history",
         component: lazy(() => import("./pages/History.tsx")),
         info: { title: "自动存档", icon: RobotVacuum, index: 4 },
+    },
+    {
+        path: "/cloud",
+        component: lazy(() => import("./pages/Cloud.tsx")),
+        info: { title: "云端片段", icon: Cloud, index: 2 },
     },
     {
         path: "/manual",

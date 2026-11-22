@@ -5,6 +5,7 @@ import { loadSegments } from "@/utils/segments";
 
 const INITIAL_CONFIG: Config = {
     segments: [],
+    useCloudSegments: true,
 };
 
 export const STORAGE_KEYS = Object.keys(INITIAL_CONFIG) as (keyof Config)[];

@@ -222,7 +222,7 @@ async function readErrorText(response: Response): Promise<string> {
 }
 
 /** 用 bilibili pagelist 补齐当前分P 的 cid 和规范时长 */
-async function resolveVideoPage(
+export async function resolveVideoPage(
     bvid: string,
     page: number,
 ): Promise<BiliVideoPage | null> {

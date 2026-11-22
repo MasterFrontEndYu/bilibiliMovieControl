@@ -126,6 +126,10 @@ export default function Home() {
                         。查询结果显示在「查看」里（标识 BiliSB），手动片段可上传到同一接口。
                         上传需要私人 ID，首次自动生成并保存在本地。
                     </p>
+                    <p class="text-sm text-base-content/60 leading-relaxed m-0">
+                        可在「云端片段」设置页开关是否参与跳转（默认开启）：intro /
+                        sponsor 作为跳过，outro 作为下一 P；与手动片段重叠时手动优先。
+                    </p>
 
                     <div class="bg-base-200/60 rounded-xl p-4 text-sm text-base-content/70 leading-relaxed">
                         <div class="font-semibold text-base-content mb-2">

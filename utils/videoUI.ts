@@ -2,6 +2,7 @@ import type {
     ActionButtonHandlers,
     ActionButtonVariant,
     ActionButtonsHandle,
+    SkipSegment,
     VideoUIConfig,
     VideoUIHandle,
 } from "@/types/types";
@@ -101,7 +102,14 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
     const next = document.createElement("span");
     next.title = "到点切换下一 P 的片段数";
 
-    badge.append(skip, divider, next);
+    const divider2 = document.createElement("span");
+    divider2.style.cssText =
+        "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
+
+    const cloud = document.createElement("span");
+    cloud.title = "云端片段数量";
+
+    badge.append(skip, divider, next, divider2, cloud);
 
     const warning = document.createElement("span");
     warning.textContent = "⚠ 下一P时间早于片段跳过结束，可能导致连续跳转。";
@@ -111,7 +119,10 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
     root.append(badge, warning);
     container.append(root);
 
-    const update = (cfg: VideoUIConfig) => {
+    const update = (
+        cfg: VideoUIConfig,
+        cloudSegments: SkipSegment[] = [],
+    ) => {
         const segments = cfg.segments ?? [];
         const skipSegments = segments.filter(
             (segment) => segment.kind === "skip",
@@ -119,6 +130,13 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
         const nextSegments = segments.filter(
             (segment) => segment.kind === "next",
         );
+
+        const cloudSkip = cloudSegments.filter(
+            (segment) => segment.kind === "skip",
+        ).length;
+        const cloudNext = cloudSegments.filter(
+            (segment) => segment.kind === "next",
+        ).length;
 
         const conflict = nextSegments.some(
             (nextSegment) =>
@@ -130,6 +148,12 @@ export function createVideoUI(container: HTMLElement): VideoUIHandle {
 
         skip.textContent = `⏭ OP 跳过 ${skipSegments.length} 段`;
         next.textContent = `🔚 下一 P ${nextSegments.length} 个`;
+        cloud.textContent = cfg.useCloudSegments
+            ? `☁ 云端 ${cloudSkip + cloudNext} 个`
+            : "☁ 云端 关";
+        cloud.title = cfg.useCloudSegments
+            ? `云端片段：跳过 ${cloudSkip} / 下一P ${cloudNext}`
+            : "云端片段已关闭，可在设置页开启";
 
         badge.style.background = conflict ? "#f59e0b" : "#fb7299";
         badge.style.boxShadow = conflict
