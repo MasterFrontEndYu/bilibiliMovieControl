@@ -16,6 +16,10 @@ export default defineConfig({
         browser_specific_settings: {
             gecko: {
                 id: "bilibili-movie-control@sanguogege.com",
+                data_collection_permissions: {
+                    required: ["browsingActivity", "websiteContent"],
+                    optional: ["technicalAndInteraction"],
+                },
             },
         },
         permissions: ["storage", "tabs", "activeTab", "scripting"],

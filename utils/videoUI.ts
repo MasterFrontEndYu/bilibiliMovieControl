@@ -63,8 +63,12 @@ export function createActionButtons(
     host: HTMLElement,
     handlers: ActionButtonHandlers,
 ): ActionButtonsHandle {
-    const viewButton = createButton("查看", "primary", handlers.onView);
-    const submitButton = createButton("设置", "secondary", handlers.onSubmit);
+    const viewButton = createButton("片段查看", "primary", handlers.onView);
+    const submitButton = createButton(
+        "片段设置",
+        "secondary",
+        handlers.onSubmit,
+    );
 
     host.append(viewButton, submitButton);
 
@@ -80,6 +84,15 @@ const BADGE_STYLE =
     "display:inline-flex;align-items:center;gap:8px;padding:0 12px;color:#fff;" +
     "border-radius:8px;font-size:12px;font-family:sans-serif;" +
     "transition:background .2s,box-shadow .2s;";
+
+/** 状态条里的下一 P 只显示片段起点时间 */
+const formatTime = (seconds: number): string => {
+    const total = Math.max(0, Math.round(seconds));
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
 
 /**
  * 页面内悬浮状态条（原生 DOM 实现，不依赖任何 UI 框架）。
@@ -103,7 +116,7 @@ export function createVideoUI(
         "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
 
     const next = document.createElement("span");
-    next.title = "下一 P";
+    next.title = "下一 P 片段起点时间";
 
     const divider2 = document.createElement("span");
     divider2.style.cssText =
@@ -175,7 +188,10 @@ export function createVideoUI(
         );
 
         skip.textContent = `⏭ 片段跳过 ${skipSegments.length} 段`;
-        next.textContent = `🔚 下一 P ${nextSegments.length} 个`;
+        const nextSegment = nextSegments[0];
+        next.textContent = nextSegment
+            ? `🔚  ${formatTime(nextSegment.start)}`
+            : "🔚  未设置";
         cloud.textContent = cfg.useCloudSegments
             ? `☁ 云端 ${cloudSkip + cloudNext} 个`
             : "☁ 云端 关";

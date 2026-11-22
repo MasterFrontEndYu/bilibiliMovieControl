@@ -36,7 +36,7 @@ export const SB_API_BASE = SB_API_IS_TEST
 
 export const SB_API_URL = `${SB_API_BASE}/skipSegments`;
 
-const REQUEST_TIMEOUT_MS = 3000;
+const REQUEST_TIMEOUT_MS = 8000;
 const SUBMIT_TIMEOUT_MS = 5000;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const FORCE_CACHE_TTL_MS = 2 * 60 * 1000;
@@ -278,8 +278,9 @@ export async function resolveVideoPage(
     page: number,
 ): Promise<BiliVideoPage | null> {
     const pages = await fetchVideoPages(bvid);
-    const info = pages.find((item) => item.page === page) ?? pages[0];
+    const info = pages.find((item) => item.page === page);
 
+    // 找不到目标分P 时不要退回第 1 P，否则可能查询/提交到错误的 cid
     return info ? { cid: info.cid, duration: info.duration } : null;
 }
 
@@ -304,6 +305,11 @@ export async function submitSkipSegments(
 
     const resolved = await resolveVideoPage(params.bvid, params.page ?? 1);
     const cid = params.cid ?? resolved?.cid;
+
+    if (!cid) {
+        return { ok: false, reason: "network" };
+    }
+
     const videoDuration =
         resolved && resolved.duration > 0
             ? resolved.duration

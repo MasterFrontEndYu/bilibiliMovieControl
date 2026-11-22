@@ -116,7 +116,13 @@ export function parseCreatedSegments(created: unknown): SkipSegment[] {
         const start = Number(bounds[0]);
         const end = Number(bounds[1]);
 
-        if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+        if (
+            !Number.isFinite(start) ||
+            !Number.isFinite(end) ||
+            end <= start
+        ) {
+            continue;
+        }
 
         segments.push({
             id: String(record.UUID ?? `${start}-${end}`),

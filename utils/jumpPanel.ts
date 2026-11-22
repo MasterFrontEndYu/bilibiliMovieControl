@@ -50,10 +50,10 @@ font-size:16px;line-height:1;cursor:pointer;padding:0 4px;}
 .bmc-section-head{display:flex;justify-content:space-between;color:rgba(255,255,255,.5);
 font-size:11px;margin:10px 0 4px;}
 .bmc-section-head:first-child{margin-top:0;}
-.bmc-help{box-sizing:border-box;width:16px;height:16px;padding:0;border-radius:50%;
+.bmc-help{box-sizing:border-box;width:14px;height:14px;padding:0;border-radius:50%;
 border:1px solid rgba(255,255,255,.4);background:transparent;color:rgba(255,255,255,.8);
-font-size:11px;line-height:14px;text-align:center;cursor:pointer;font-family:inherit;
-flex:0 0 auto;}
+font-size:10px;line-height:12px;text-align:center;cursor:pointer;font-family:inherit;
+flex:0 0 auto;margin-left:10px;}
 .bmc-help:hover{background:rgba(255,255,255,.14);color:#fff;}
 .bmc-seg{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;
 background:rgba(255,255,255,.05);cursor:pointer;margin-top:4px;}
@@ -190,7 +190,7 @@ function generateUserID(): string {
  * - next → outro（到结束位置或视频结尾）
  * 云端来源（source=api）不重复提交。
  */
-function buildSubmitSegments(
+export function buildSubmitSegments(
     config: JumpPanelConfig,
     videoDuration: number,
 ): SubmitSegmentInput[] {
@@ -408,7 +408,7 @@ export function createJumpPanel(
             badge.textContent = "手动·下一P";
         } else {
             badge.className = "bmc-badge is-skip";
-            badge.textContent = "手动·OP";
+            badge.textContent = "手动·跳过";
         }
 
         const time = document.createElement("span");
@@ -424,7 +424,7 @@ export function createJumpPanel(
         if (segment.source === "api") {
             const kindMark = document.createElement("span");
             kindMark.className = "bmc-kind";
-            kindMark.textContent = segment.kind === "next" ? "P" : "⏭";
+            kindMark.textContent = segment.kind === "next" ? "🔚" : "⏭";
             kindMark.title =
                 segment.kind === "next" ? "下一 P 片段" : "跳过片段";
             row.append(kindMark);
@@ -532,38 +532,6 @@ export function createJumpPanel(
             editStartText = startInput.value;
         });
 
-        /** 编辑时用 ← / → 微调时间（Shift 每次 10 秒） */
-        const bindTimeArrowKeys = (
-            input: HTMLInputElement,
-            getText: () => string,
-            setText: (value: string) => void,
-        ) => {
-            input.addEventListener("keydown", (event) => {
-                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight")
-                    return;
-
-                const current = parseTimeText(getText());
-                if (!Number.isFinite(current)) return;
-
-                const step = event.shiftKey ? 10 : 1;
-                const delta = event.key === "ArrowRight" ? step : -step;
-                const next = Math.max(0, current + delta);
-
-                setText(formatSeconds(next));
-                input.value = formatSeconds(next);
-                event.preventDefault();
-                event.stopPropagation();
-            });
-        };
-
-        bindTimeArrowKeys(
-            startInput,
-            () => editStartText,
-            (value) => {
-                editStartText = value;
-            },
-        );
-
         const kindSelect = document.createElement("select");
         for (const kind of ["skip", "next"] as const) {
             const option = document.createElement("option");
@@ -614,13 +582,6 @@ export function createJumpPanel(
         endInput.addEventListener("input", () => {
             editEndText = endInput.value;
         });
-        bindTimeArrowKeys(
-            endInput,
-            () => editEndText,
-            (value) => {
-                editEndText = value;
-            },
-        );
 
         // 开头 / 结尾 各自独立：编辑 / 保存
         const boundary = document.createElement("div");
@@ -760,12 +721,6 @@ export function createJumpPanel(
         );
 
         wrapper.append(actions);
-
-        const hint = document.createElement("div");
-        hint.className = "bmc-hint";
-        hint.textContent =
-            "提示：编辑时间时可用 ← / → 微调 1 秒（Shift 为 10 秒）。";
-        wrapper.append(hint);
 
         return wrapper;
     };

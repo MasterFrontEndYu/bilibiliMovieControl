@@ -88,7 +88,7 @@ export default function Index() {
 
             <div class="bg-base-200/60 rounded-xl p-3 text-xs text-base-content/70 flex flex-col gap-1">
                 <div class="flex justify-between">
-                    <span>OP 跳过</span>
+                    <span>片段跳过</span>
                     <span class="font-mono">{skipCount()} 个</span>
                 </div>
                 <div class="flex justify-between">

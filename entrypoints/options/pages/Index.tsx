@@ -72,7 +72,7 @@ export default function Home() {
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div class="bg-base-200/60 rounded-xl p-4">
                             <div class="font-semibold text-sm text-base-content mb-1">
-                                OP 跳过
+                                片段跳过
                             </div>
                             <p class="text-sm text-base-content/60 m-0 leading-relaxed">
                                 播放进入区间时直接跳到终点，适合片头、插播广告。
@@ -92,7 +92,7 @@ export default function Home() {
                         <li>「开头 / 结尾」各自有编辑、保存两个状态，可分别修改</li>
                         <li>结束时间早于开始时间时，自动取「开始 + 20 秒」</li>
                         <li>支持预览、定位开头 / 定位结尾、删除；删完还有片段就不关窗口</li>
-                        <li>下一 P 早于 OP 跳过结束时，页面状态条会变橙色提示</li>
+                        <li>下一 P 早于片段跳过结束时，页面状态条会变橙色提示</li>
                     </ul>
                 </div>
             </div>
@@ -156,7 +156,7 @@ export default function Home() {
                             <p class="m-0">
                                 点「＋ 新建片段（当前进度）」：起始 = 当前播放进度，结束 =
                                 起始 + 20 秒。把类型切到「下一P」时，结束会自动改成视频结尾；
-                                再切回「OP跳过」，结束会重新取「起始 + 20 秒」。
+                                再切回「片段跳过」，结束会重新取「起始 + 20 秒」。
                             </p>
                         </div>
 

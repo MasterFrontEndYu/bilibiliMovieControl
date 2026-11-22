@@ -166,7 +166,7 @@ export default function CloudPage() {
                         使用云端片段：{enabled() ? "已开启" : "已关闭"}
                     </h2>
                     <p class="text-sm text-base-content/60 m-0 leading-relaxed">
-                        开启后，intro / sponsor 作为 OP 跳过，outro 作为下一 P；
+                        开启后，intro / sponsor 作为片段跳过，outro 作为下一 P；
                         与手动片段重叠时手动优先。
                     </p>
                     <div class="flex items-center">

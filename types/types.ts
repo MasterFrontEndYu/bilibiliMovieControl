@@ -16,7 +16,7 @@ export interface TimePoint {
 // 片段（统一模型）
 // ============================================================
 
-/** skip = OP 跳过；next = 到点切换下一 P */
+/** skip = 片段跳过；next = 到点切换下一 P */
 export type SegmentKind = "skip" | "next";
 
 /** manual = 用户手动设置；api = 从 BilibiliSponsorBlock 查到或提交后返回的 */

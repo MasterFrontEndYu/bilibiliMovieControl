@@ -34,7 +34,7 @@ export default function AboutPage() {
                         功能
                     </h2>
                     <p class="m-0 text-sm text-base-content/70 leading-relaxed">
-                        OP 跳过、到点切换下一 P、云端片段查询与上传，以及自动 / 手动存档。
+                        片段跳过、到点切换下一 P、云端片段查询与上传，以及自动 / 手动存档。
                     </p>
                 </div>
             </div>

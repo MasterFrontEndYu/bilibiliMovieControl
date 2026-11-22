@@ -12,6 +12,25 @@ import {
 /** 页面加载后等待多久再记录自动存档 */
 const ARCHIVE_DELAY_MS = 4000;
 
+/** 复用已打开的设置页，避免每次点「？」/「云端数据」都新建标签页 */
+async function openOrFocusOptions(url: string): Promise<void> {
+    const optionsBase = browser.runtime.getURL("/options.html");
+    const tabs = await browser.tabs.query({});
+    const existing = tabs.find((tab) => tab.url?.startsWith(optionsBase));
+
+    if (existing?.id != null) {
+        await browser.tabs.update(existing.id, { url, active: true });
+        if (existing.windowId != null) {
+            await browser.windows
+                .update(existing.windowId, { focused: true })
+                .catch(() => undefined);
+        }
+        return;
+    }
+
+    await browser.tabs.create({ url });
+}
+
 export default defineBackground(() => {
     /**
      * 消息路由：Popup / Content Script 发来的请求统一在这里分发
@@ -39,7 +58,19 @@ export default defineBackground(() => {
                             data.bvid,
                             Number(data.page),
                         );
-                        cid = pageInfo?.cid;
+
+                        // 解析失败时不要退化为「全部 P」查询，否则可能串到别的分P
+                        if (!pageInfo) {
+                            sendResponse({
+                                ok: false,
+                                segments: [],
+                                fromCache: false,
+                                reason: "network",
+                            });
+                            return;
+                        }
+
+                        cid = pageInfo.cid;
                     }
 
                     sendResponse(
@@ -57,7 +88,7 @@ export default defineBackground(() => {
                 const url = browser.runtime.getURL(
                     "/options.html?section=settings#/",
                 );
-                void browser.tabs.create({ url });
+                void openOrFocusOptions(url).catch(() => undefined);
                 sendResponse({ ok: true });
                 return true;
             }
@@ -94,7 +125,7 @@ export default defineBackground(() => {
                 const url = browser.runtime.getURL(
                     `/options.html#/cloud?bvid=${encodeURIComponent(bvid)}&page=${page}`,
                 );
-                void browser.tabs.create({ url });
+                void openOrFocusOptions(url).catch(() => undefined);
                 sendResponse({ ok: true });
                 return true;
             }

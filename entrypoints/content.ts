@@ -334,8 +334,58 @@ export default defineContentScript({
                 }, timeout);
             });
 
+        /**
+         * B 站顶栏会先从骨架 .mini-header 切换成完整的 .bili-header--mini；
+         * 在切换完成前往页面里插节点，会让它的 mount 报 nextSibling 为 null，
+         * 结果整个顶部导航条消失。这里等切换完成（或超时兜底）再挂插件 UI。
+         */
+        const waitForBiliHeaderReady = (timeout = 8000) =>
+            new Promise<void>((resolve) => {
+                const ready = () =>
+                    !!document.querySelector(
+                        ".bili-header--mini, .bili-header__menu",
+                    );
+
+                if (ready()) {
+                    resolve();
+                    return;
+                }
+
+                let done = false;
+                let observer: MutationObserver | null = null;
+                let timer: ReturnType<typeof setTimeout> | null = null;
+
+                const finish = () => {
+                    if (done) return;
+                    done = true;
+                    observer?.disconnect();
+                    if (timer) clearTimeout(timer);
+                    resolve();
+                };
+
+                observer = new MutationObserver(() => {
+                    if (ready()) finish();
+                });
+                observer.observe(document.documentElement, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                });
+                timer = setTimeout(finish, timeout);
+            });
+
         // ---------- 3. UI 挂载（原生 DOM） ----------
         let uiMounted = false;
+        /** B 站顶栏切换完成前不插 DOM，避免影响页面自身渲染 */
+        let biliHeaderReady = false;
+
+        void waitForBiliHeaderReady().then(() => {
+            // 再给顶栏一点稳定时间，然后才允许插入状态条
+            setTimeout(() => {
+                biliHeaderReady = true;
+            }, 300);
+        });
+
         const ui = createIntegratedUi(ctx, {
             position: "inline",
             anchor: () => document.getElementById(TARGET_ID) as HTMLElement,
@@ -376,7 +426,11 @@ export default defineContentScript({
 
         const updateUi = (shouldMount: boolean) => {
             // 页面容器被 SPA 替换时，wrapper 会脱离 DOM；此时重新挂载
-            if (shouldMount && (!uiMounted || !ui.wrapper.isConnected)) {
+            if (
+                shouldMount &&
+                biliHeaderReady &&
+                (!uiMounted || !ui.wrapper.isConnected)
+            ) {
                 if (uiMounted) {
                     ui.remove();
                     uiMounted = false;
@@ -443,7 +497,7 @@ export default defineContentScript({
 
             const effective = [...config.segments, ...cloud];
 
-            // OP 跳过
+            // 片段跳过
             for (const segment of effective) {
                 if (segment.kind !== "skip") continue;
                 if (cur >= segment.start && cur < segment.end) {

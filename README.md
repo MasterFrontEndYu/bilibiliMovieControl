@@ -1,16 +1,16 @@
 # BilibiliMovieControl（B 站连播助手）
 
-> 面向 B 站**用户上传合集**的连播辅助插件：在播放页管理「OP 跳过 / 下一 P」片段，自动连播，并可将片段上传到 BilibiliSponsorBlock。
+> 面向 B 站**用户上传合集**的连播辅助插件：在播放页管理「片段跳过 / 下一 P」片段，自动连播，并可将片段上传到 BilibiliSponsorBlock。
 
 ![Version](https://img.shields.io/github/package-json/v/sanguogege/BilibiliMovieControl)
-![Manifest](https://img.shields.io/badge/Manifest_V3-✓-green)
+![Manifest](https://img.shields.io/badge/Manifest_V3_%2F_V2-✓-green)
 ![Tech](https://img.shields.io/badge/WXT%20%2B%20SolidJS-fb7299)
 
 ---
 
 ## ✨ 功能
 
-- **OP 跳过**：播放进入片段区间时，自动跳到区间终点
+- **片段跳过**：播放进入片段区间时，自动跳到区间终点
 - **下一 P**：播放到达片段起点时，自动点击「下一 P」
 - **片段管理**：播放页的「查看」展示手动片段与云端片段；「设置」里编辑起止位置与类型，支持预览、定位、删除
 - **云端片段**：查询 BilibiliSponsorBlock 的片段，带 `BiliSB` 标识；可在设置页开关是否参与跳转
@@ -27,7 +27,7 @@
 1. 打开合集视频，标题下方出现状态条与「查看 / 设置」按钮
 2. **查看**：浏览手动片段和云端片段
 3. **设置**（编辑 / 上传）：
-   - 编辑片段：填写起止时间、选择类型（OP跳过 / 下一P）
+   - 编辑片段：填写起止时间、选择类型（片段跳过 / 下一P）
    - 按钮：删除、预览、开头、结尾、编辑/保存
    - 已保存片段：点击载入编辑，或「＋ 新建片段」以当前进度为起点
    - 私人 ID：首次自动生成并保存在本地，也可替换
@@ -53,7 +53,7 @@
 
 | 类别 | 选型 |
 | --- | --- |
-| 扩展框架 | [WXT](https://wxt.dev)（MV3） |
+| 扩展框架 | [WXT](https://wxt.dev)（Chrome / Edge MV3，Firefox MV2） |
 | UI | Popup / Options 使用 [SolidJS](https://www.solidjs.com)；内容脚本为原生 DOM |
 | 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com) |
 | 接口 | [BilibiliSponsorBlock API](https://github.com/hanydd/BilibiliSponsorBlock/wiki/API) |
@@ -89,6 +89,7 @@ bun install      # 安装依赖
 bun dev          # 开发模式（Chrome）
 bun build        # 构建生产包
 bun compile      # 类型检查
+bun test         # 运行单元测试
 bun zip          # 生成发布包
 ```
 
