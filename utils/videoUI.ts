@@ -95,6 +95,34 @@ const formatTime = (seconds: number): string => {
 };
 
 /**
+ * 取实际会先触发的下一 P：
+ * 手动片段优先，云端片段与任意手动片段重叠时忽略（与 content 的播放逻辑一致）。
+ */
+export function pickNextSegment(
+    manualSegments: SkipSegment[],
+    cloudSegments: SkipSegment[],
+): SkipSegment | null {
+    const cloudEffective = cloudSegments.filter(
+        (segment) =>
+            !manualSegments.some(
+                (item) => segment.start < item.end && segment.end > item.start,
+            ),
+    );
+
+    const candidates = [
+        ...manualSegments.filter(
+            (segment) => segment.kind === "next" && segment.start > 0,
+        ),
+        ...cloudEffective.filter(
+            (segment) => segment.kind === "next" && segment.start > 0,
+        ),
+    ];
+
+    candidates.sort((a, b) => a.start - b.start);
+    return candidates[0] ?? null;
+}
+
+/**
  * 页面内悬浮状态条（原生 DOM 实现，不依赖任何 UI 框架）。
  * 挂载到 WXT 注入的容器里，由调用方在配置变化时调用 update()。
  */
@@ -188,7 +216,7 @@ export function createVideoUI(
         );
 
         skip.textContent = `⏭ 片段跳过 ${skipSegments.length} 段`;
-        const nextSegment = nextSegments[0];
+        const nextSegment = pickNextSegment(segments, cloudSegments);
         next.textContent = nextSegment
             ? `🔚  ${formatTime(nextSegment.start)}`
             : "🔚  未设置";
