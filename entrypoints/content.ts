@@ -1,26 +1,48 @@
-// content/index.ts
-import { render } from "@solidjs/web";
+// entrypoints/content.ts
+// 内容脚本：原生 DOM + 直接读写 storage，不依赖 SolidJS
 import { browser } from "wxt/browser";
 import {
     getMainVideo,
     toSeconds,
     TARGET_ID,
     BTN_CLASS,
-    matchShortcut,
-    isEditableTarget,
 } from "@/utils/bilibili";
-import { useConfig, initGlobalConfig } from "@/hooks/useStorageConfig";
-import { VideoUI } from "@/components/VideoUI";
+import type { BiliVideoConfig, TimePoint, TimeRange } from "@/types/types";
+import { createVideoUI, type VideoUIHandle } from "@/utils/videoUI";
+
+/** content 只需要这两项配置 */
+type ContentConfig = Pick<BiliVideoConfig, "opRanges" | "jumpConfig">;
+
+const DEFAULT_CONFIG: ContentConfig = {
+    opRanges: [],
+    jumpConfig: { h: 0, m: 0, s: 0 },
+};
 
 export default defineContentScript({
     matches: ["*://*.bilibili.com/video/*"],
     cssInjectionMode: "manual",
 
     async main(ctx) {
-        // ---------- 1. 配置管理（shortcut 一起交给 useConfig 同步） ----------
-        const { config } = useConfig(["opRanges", "jumpConfig", "shortcut"]);
+        // ---------- 1. 配置：直接读 storage，变更由 storage.onChanged 通知 ----------
+        let config: ContentConfig = { ...DEFAULT_CONFIG };
+        let uiHandle: VideoUIHandle | null = null;
 
-        await initGlobalConfig();
+        const loadConfig = async () => {
+            const stored = await browser.storage.local.get({
+                opRanges: [],
+                jumpConfig: { h: 0, m: 0, s: 0 },
+            });
+
+            config = {
+                opRanges: (stored.opRanges as TimeRange[]) ?? [],
+                jumpConfig:
+                    (stored.jumpConfig as TimePoint) ?? DEFAULT_CONFIG.jumpConfig,
+            };
+
+            uiHandle?.update(config);
+        };
+
+        await loadConfig();
 
         // ---------- 2. 工具函数：等待元素出现 ----------
         const waitForElement = (selector: string, timeout = 10000) =>
@@ -41,16 +63,18 @@ export default defineContentScript({
                 }, timeout);
             });
 
-        // ---------- 3. UI 挂载 ----------
+        // ---------- 3. UI 挂载（原生 DOM） ----------
         let uiMounted = false;
         const ui = createIntegratedUi(ctx, {
             position: "inline",
             anchor: () => document.getElementById(TARGET_ID) as HTMLElement,
             onMount: (container) => {
-                return render(
-                    () => <VideoUI config={config} />,
-                    container,
-                );
+                uiHandle = createVideoUI(container);
+                uiHandle.update(config);
+                return () => {
+                    uiHandle?.destroy();
+                    uiHandle = null;
+                };
             },
             onRemove: (unmount) => unmount?.(),
         });
@@ -77,33 +101,7 @@ export default defineContentScript({
             }
         };
 
-        // ---------- 5. 快捷键监听（读 config.shortcut，自动同步） ----------
-        ctx.addEventListener(
-            window,
-            "keydown",
-            (event) => {
-                // 输入法组合中不处理，避免拼音阶段误触
-                if (event.isComposing) return;
-
-                const sc = config.shortcut;
-                if (!sc) return;
-
-                // 焦点在搜索框 / 弹幕框 / 评论框等可编辑区域时不触发
-                // 注意：评论区的富文本编辑区在 shadow DOM 里，必须把 event 一起传进去，
-                // 靠 composedPath() 穿透 shadow root 才能识别（否则按快捷键会打断打字）
-                if (isEditableTarget(event.target, event)) return;
-
-                // 只匹配用户保存的那一个快捷键
-                if (!matchShortcut(event, sc)) return;
-
-                event.preventDefault();
-                event.stopPropagation();
-                executeJump();
-            },
-            { capture: true },
-        );
-
-        // ---------- 6. 核心控制逻辑 ----------
+        // ---------- 5. 核心控制逻辑 ----------
         const runControlLogic = () => {
             const video = getMainVideo();
             if (!video || video.readyState < 2) return;
@@ -126,7 +124,7 @@ export default defineContentScript({
             }
         };
 
-        // ---------- 7. 主循环 ----------
+        // ---------- 6. 主循环 ----------
         let lastPageState = false;
         const mainLoop = async () => {
             try {
@@ -150,8 +148,8 @@ export default defineContentScript({
             }
         };
 
-        // ---------- 8. 事件监听 ----------
-        const messageListener = (msg: any, sender: any, sendResponse: any) => {
+        // ---------- 7. 事件监听 ----------
+        const messageListener = (msg: any, _sender: any, sendResponse: any) => {
             if (msg.type === "PING") {
                 sendResponse({ alive: lastPageState });
                 return true;
@@ -159,6 +157,14 @@ export default defineContentScript({
             return false;
         };
         browser.runtime.onMessage.addListener(messageListener);
+
+        // popup / options 写入 storage 后，浏览器通过 onChanged 通知到这里
+        const storageListener = (changes: any, area: string) => {
+            if (area !== "local") return;
+            if (!changes.opRanges && !changes.jumpConfig) return;
+            void loadConfig();
+        };
+        browser.storage.onChanged.addListener(storageListener);
 
         // 页面 URL 变化
         const locationChangeHandler = (event: Event) => {
@@ -169,17 +175,17 @@ export default defineContentScript({
         };
         ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
-        // ---------- 9. 启动 ----------
+        // ---------- 8. 启动 ----------
         await waitForElement(TARGET_ID);
 
         ctx.setInterval(mainLoop, 200);
 
-        // ---------- 10. 清理 ----------
-        // ctx.addEventListener / ctx.setInterval 由 WXT 在失效时自动清理，
-        // 手动再 removeEventListener / clearInterval 会因为引用被包装而失效，徒增困惑。
-        // 只有非 ctx 注册的 browser.runtime.onMessage 需要手动移除。
+        // ---------- 9. 清理 ----------
+        // ctx.addEventListener / ctx.setInterval 由 WXT 在失效时自动清理；
+        // browser.* 上的监听需要手动移除。
         ctx.onInvalidated(() => {
             browser.runtime.onMessage.removeListener(messageListener);
+            browser.storage.onChanged.removeListener(storageListener);
             updateUi(false);
         });
     },

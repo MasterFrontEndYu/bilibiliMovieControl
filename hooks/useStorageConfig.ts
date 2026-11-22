@@ -6,7 +6,6 @@ const INITIAL_CONFIG: BiliVideoConfig = {
     opRanges: [],
     jumpConfig: { h: 0, m: 0, s: 0 },
     isPageReady: false,
-    shortcut: "",
 };
 
 export const STORAGE_KEYS = Object.keys(

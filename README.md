@@ -56,12 +56,6 @@
 - **Popup 状态徽章**："已就绪 / 未启动"实时反映插件在当前页面的可用状态
 - **页面悬浮提示**：视频标题栏下方显示跳过段数与当前切集点，未设置时显示"未设置"
 
-
-### 5. 新增快捷键
-
-- **B站原生快捷键支持**：B站网页播放器原生支持用 ] 跳转下一P、[ 跳转上一P。 不过 ] 位于回车键附近，单手操作不够顺手，也缺乏 “下一”的语义联想。
-- **连播助手**：本页面提供的是更友好、更易记的替代键（例如 N = Next），原生快捷键仍会正常工作，两者互不干扰。
-
 ---
 
 ## 🎯 适用范围说明
@@ -129,6 +123,7 @@ flowchart TD
 **核心细节**
 
 - **主循环节流**：内容脚本每 200ms 读取一次播放进度；跳转操作 3s 防抖，避免误触
+- **配置读取**：内容脚本启动时直接读 `storage.local`，之后靠 `storage.onChanged` 接收 Popup 的写入，无需刷新页面
 - **切集点**：`jumpConfig` 为 0 时视为未启用，不会自动切集
 - **自动存档**：页面加载完成后，后台 4s 延迟等待、URL 去重（保留 `?p=` 参数）后记录最新配置快照
 
@@ -141,7 +136,7 @@ flowchart TD
 | 类别 | 选型 |
 | --- | --- |
 | 扩展框架 | [WXT](https://wxt.dev)（Web Extension Toolbox，MV3） |
-| UI 框架 | [SolidJS](https://www.solidjs.com) |
+| UI 框架 | [SolidJS](https://www.solidjs.com)（仅 Popup / Options；内容脚本为原生 DOM） |
 | 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com)（自适应浏览器深浅色主题） |
 | 图标 | @lucide/solid 
 | 构建工具 | Vite + Bun |
@@ -152,28 +147,28 @@ flowchart TD
 BilibiliMovieControl/
 ├── entrypoints/               # WXT 入口（每个文件 / 目录都是一个独立入口）
 │   ├── background.ts          # 后台：自动 / 手动存档、图标状态管理、PING 心跳
-│   ├── content.tsx            # 内容脚本：主控制循环、OP 跳过、切集、快捷键、UI 挂载
+│   ├── content.ts             # 内容脚本：原生 DOM + 直接读 storage，主循环 / OP 跳过 / 切集
 │   ├── options/               # 设置页（options.html）
 │   │   ├── App.tsx            # 侧边栏布局 + 路由容器
 │   │   ├── main.tsx           # 页面挂载入口
-│   │   ├── router.ts          # hash 路由：/ /shortcut /history /manual /about
+│   │   ├── router.ts          # hash 路由：/ /history /manual /about
 │   │   ├── index.html
-│   │   └── pages/             # Index / Shortcut / History / Manual / About
+│   │   └── pages/             # Index / History / Manual / About
 │   └── popup/                 # 工具栏弹窗（popup.html）
 │       ├── App.tsx            # 弹窗外壳（卡片布局）
 │       ├── main.tsx
 │       ├── router.ts          # hash 路由：/ /open
 │       ├── index.html
 │       └── pages/             # Index（主面板）/ Open（多 OP 区间编辑器）
-├── components/                # 共享 UI 组件
-│   ├── VideoUI.tsx            # 页面内悬浮状态条
+├── components/                # 共享 UI 组件（仅 Popup / Options 使用）
 │   ├── TimeInput.tsx          # 时:分:秒 输入组件
 │   ├── HistoryList.tsx        # 存档记录列表（跳转 / 删除）
 │   └── OptionsFooter.tsx      # 设置页页脚（版本与版权信息）
 ├── hooks/
 │   └── useStorageConfig.ts    # 配置统一管理（全局 store + storage 双向同步）
 ├── utils/
-│   ├── bilibili.ts            # B 站工具：URL 清洗、合集标题、视频元素、时间换算、快捷键匹配
+│   ├── bilibili.ts            # B 站工具：URL 清洗、合集标题、视频元素、时间换算
+│   └── videoUI.ts             # 页面内悬浮状态条（原生 DOM）
 ├── types/
 │   └── types.ts               # 类型定义（TimePoint / TimeRange / 配置 / 历史记录）
 ├── modules/
@@ -193,7 +188,7 @@ BilibiliMovieControl/
 flowchart LR
     Popup[Popup 弹窗] -- 读写 --> S[(browser.storage.local)]
     Options[Options 设置页] -- 读写 --> S
-    S -- onChanged 广播 --> CS[Content Script]
+    S -- onChanged 通知 --> CS[Content Script]
     CS -- 控制视频播放/跳转 --> Bili[B 站播放器]
     CS -- PING 心跳 --> BG[Background]
     BG -- 更新图标状态 --> Icon[工具栏图标]
@@ -207,11 +202,10 @@ flowchart LR
 | `opRanges` | `TimeRange[]` | 多区间 OP / 中插跳过列表（`id` + `start` / `end`） |
 | `jumpConfig` | `TimePoint` | 切集点（`0:00:00` 表示未启用） |
 | `isPageReady` | `boolean` | 当前页是否已就绪（内容脚本 / 后台写入） |
-| `shortcut` | `string` | 自定义跳转快捷键，空字符串表示未设置 |
 
 - 默认值集中定义在 [`hooks/useStorageConfig.ts`](./hooks/useStorageConfig.ts) 的 `INITIAL_CONFIG`，`STORAGE_KEYS` 由它自动派生
-- `useConfig(keys)` 返回只读响应式 `config` 与 `update()`，各端只读写自己用到的键
-- 每个上下文（Popup / Options / Content / Background）各持一份模块级 `createStore` 实例；写入 `storage.local` 后，再通过 `storage.onChanged` 把新值同步到其他上下文，内容脚本无需刷新即可生效
+- `useConfig(keys)` 返回只读响应式 `config` 与 `update()`，Popup / Options 用它读写自己关心的键
+- 内容脚本不依赖 UI 框架：启动时直接 `storage.local.get` 读取配置，之后由 `storage.onChanged` 接收写入通知并重新读取
 - **历史记录**：`latestHistory`（自动，20 条）、`pinnedHistory`（手动，20 条）
 
 ---

@@ -5,13 +5,12 @@ import { lazy } from "solid-js";
 import {
     BadgeAlert,
     HouseHeart,
-    Keyboard,
     RobotVacuum,
     ScanEye,
 } from "@lucide/solid";
 /**
  * options 页面运行在 chrome-extension:// 协议下，
- * 用 hashHistory()（URL 形如 options.html#/shortcut）最稳妥：
+ * 用 hashHistory()（URL 形如 options.html#/history）最稳妥：
  * 不会受浏览器对扩展页 history 的限制，刷新/深链都不会 404。
  */
 const routes = defineRoutes([
@@ -34,11 +33,6 @@ const routes = defineRoutes([
         path: "/about",
         component: lazy(() => import("./pages/About.tsx")),
         info: { title: "关于", icon: BadgeAlert, index: 6 },
-    },
-    {
-        path: "/shortcut",
-        component: lazy(() => import("./pages/Shortcut.tsx")),
-        info: { title: "快捷键设置", icon: Keyboard, index: 3 },
     },
 ]);
 

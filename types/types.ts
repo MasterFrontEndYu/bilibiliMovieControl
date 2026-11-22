@@ -1,14 +1,13 @@
 interface Config {
     opRanges: TimeRange[]; // 跳过列表
     jumpConfig: TimePoint; // 切集点
-    shortcut: string;
 }
 
 export interface BiliVideoConfig extends Config {
     isPageReady: boolean;
 }
 
-export interface HistoryConfig extends Omit<Config, "shortcut"> {
+export interface HistoryConfig extends Config {
     id: number;
     title: string;
     url: string;
