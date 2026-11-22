@@ -7,7 +7,7 @@ import {
     TARGET_ID,
     BTN_CLASS,
 } from "@/utils/bilibili";
-import { loadSegments, parseCreatedSegments, saveSegments } from "@/utils/segments";
+import { loadSegments, parseCreatedSegments, pickNextSegment, saveSegments } from "@/utils/segments";
 import type {
     ApiSegment,
     ContentConfig,
@@ -50,6 +50,18 @@ export default defineContentScript({
 
         const CLOUD_SKIP_CATEGORIES = new Set(["intro", "sponsor", "selfpromo"]);
 
+        const getVideo = () => getMainVideo();
+
+        const currentDuration = () => {
+            const duration = getVideo()?.duration ?? 0;
+            return Number.isFinite(duration) ? duration : 0;
+        };
+
+        /** 状态条需要同时感知手动/云端片段和视频时长，统一走这里更新 */
+        const syncUi = () => {
+            uiHandle?.update(config, cloudSegments, currentDuration());
+        };
+
         const loadConfig = async () => {
             const stored = await browser.storage.local.get({
                 useCloudSegments: true,
@@ -69,7 +81,7 @@ export default defineContentScript({
                 optimisticUntil = 0;
             }
 
-            uiHandle?.update(config, cloudSegments);
+            syncUi();
             panel?.update(config);
         };
 
@@ -177,8 +189,6 @@ export default defineContentScript({
 
         await loadConfig();
 
-        const getVideo = () => getMainVideo();
-
         /** 手动定位（开头/结尾）后短暂关闭自动跳转，避免刚定位就被规则带走 */
         let manualSeekGuardUntil = 0;
 
@@ -257,7 +267,7 @@ export default defineContentScript({
                 ...parsed,
             ];
 
-            uiHandle?.update(config, cloudSegments);
+            syncUi();
         };
 
         /** 供面板手动刷新云端片段 */
@@ -265,7 +275,7 @@ export default defineContentScript({
             force = false,
         ): Promise<SkipSegment[]> => {
             await loadCloudSegments(force);
-            uiHandle?.update(config, cloudSegments);
+            syncUi();
             return cloudSegments;
         };
 
@@ -408,7 +418,7 @@ export default defineContentScript({
                 container.append(row);
 
                 uiHandle = createVideoUI(left, openCloudPage);
-                uiHandle.update(config, cloudSegments);
+                syncUi();
 
                 const actions = createActionButtons(right, {
                     onView: () => openPanel("view"),
@@ -509,13 +519,15 @@ export default defineContentScript({
                 }
             }
 
-            // 到点切换下一 P
-            for (const segment of effective) {
-                if (segment.kind !== "next") continue;
-                if (segment.start > 0 && cur >= segment.start) {
-                    executeJump();
-                    return;
-                }
+            // 到点切换下一 P：手动 next 优先；没有手动时云端只取 start 最大的一条
+            const nextSegment = pickNextSegment(
+                config.segments,
+                cloud,
+                video.duration,
+            );
+            if (nextSegment && cur >= nextSegment.start) {
+                executeJump();
+                return;
             }
         };
 
@@ -542,7 +554,7 @@ export default defineContentScript({
                     if (key && key !== cloudKey && Date.now() >= cloudRetryAt) {
                         cloudKey = key;
                         void loadCloudSegments().finally(() => {
-                            uiHandle?.update(config, cloudSegments);
+                            syncUi();
                         });
                     }
                 }
@@ -577,7 +589,7 @@ export default defineContentScript({
             cloudKey = "";
             optimisticSegments = [];
             optimisticUntil = 0;
-            uiHandle?.update(config, cloudSegments);
+            syncUi();
 
             // 换 P / 换视频后 playerWrap 可能被替换，窗口留给下次重新创建
             panel?.destroy();

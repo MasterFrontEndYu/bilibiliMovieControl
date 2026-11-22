@@ -1,7 +1,15 @@
-import { For, Show, createSignal, onSettled } from "solid-js";
-import { Cloud, Info, RefreshCw } from "@lucide/solid";
+import {
+    For,
+    Show,
+    createSignal,
+    createTrackedEffect,
+    untrack,
+} from "solid-js";
+import { useNavigate, useSearchParams } from "@solidjs/router";
+import { Cloud, Info, RefreshCw, Vote } from "@lucide/solid";
 import { browser } from "wxt/browser";
 import { useConfig } from "@/hooks/useStorageConfig";
+import { rememberCloudContext } from "@/utils/cloudContext";
 import type { ApiSegment, BiliVideoPageInfo } from "@/types/types";
 
 const formatTime = (seconds: number) => {
@@ -12,22 +20,20 @@ const formatTime = (seconds: number) => {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
-const readBvid = () => {
-    const query = location.hash.split("?")[1] ?? "";
-    return new URLSearchParams(query).get("bvid") ?? "";
-};
-
-const readPage = () => {
-    const query = location.hash.split("?")[1] ?? "";
-    return Number(new URLSearchParams(query).get("page")) || 0;
-};
-
 export default function CloudPage() {
     const { config, update } = useConfig(["useCloudSegments"]);
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const param = (key: string) => {
+        const value = (searchParams as Record<string, unknown>)[key];
+        return typeof value === "string" ? value : "";
+    };
 
-    const initialBvid = readBvid();
+    const initialBvid = param("bvid");
     const [bvid, setBvid] = createSignal(initialBvid);
-    const [currentPage, setCurrentPage] = createSignal(readPage());
+    const [currentPage, setCurrentPage] = createSignal(
+        Number(param("page")) || 0,
+    );
     const [segments, setSegments] = createSignal<ApiSegment[]>([]);
     const [pages, setPages] = createSignal<BiliVideoPageInfo[]>([]);
     const [loading, setLoading] = createSignal(Boolean(initialBvid));
@@ -36,6 +42,16 @@ export default function CloudPage() {
     let querySeq = 0;
 
     const enabled = () => config.useCloudSegments;
+
+    const openSegment = (segment: ApiSegment) => {
+        const params = new URLSearchParams({
+            uuid: segment.id,
+            bvid: bvid(),
+            cid: segment.cid,
+            page: String(currentPage() || 1),
+        });
+        navigate(`/segment?${params.toString()}`);
+    };
 
     const toggle = () => {
         void update({ useCloudSegments: !enabled() });
@@ -98,24 +114,30 @@ export default function CloudPage() {
         }
     };
 
-    onSettled(() => {
-        const sync = () => {
-            const next = readBvid();
+    let lastBvid = "";
 
-            // 换 BV 时先清空旧视频的数据，避免新标题下短暂显示旧片段
-            if (next !== bvid()) {
-                setSegments([]);
-                setPages([]);
-            }
+    createTrackedEffect(() => {
+        const next = param("bvid");
+        const nextPage = Number(param("page")) || 0;
 
-            setBvid(next);
-            setCurrentPage(readPage());
-            if (next) void query(true);
-        };
+        if (next !== lastBvid) {
+            lastBvid = next;
+            setSegments([]);
+            setPages([]);
+        }
 
-        sync();
-        window.addEventListener("hashchange", sync);
-        return () => window.removeEventListener("hashchange", sync);
+        setBvid(next);
+        setCurrentPage(nextPage);
+
+        if (next) {
+            rememberCloudContext(next, nextPage);
+            untrack(() => void query(true));
+        } else {
+            setSegments([]);
+            setPages([]);
+            setError("");
+            setLoading(false);
+        }
     });
 
     const groups = () => {
@@ -166,8 +188,8 @@ export default function CloudPage() {
                         使用云端片段：{enabled() ? "已开启" : "已关闭"}
                     </h2>
                     <p class="text-sm text-base-content/60 m-0 leading-relaxed">
-                        开启后，intro / sponsor 作为片段跳过，outro 作为下一 P；
-                        与手动片段重叠时手动优先。
+                        开启后，intro / sponsor 作为片段跳过，outro 作为下一
+                        P；与手动片段重叠时手动优先；云端有多条下一 P 时只取起点最大的一条。
                     </p>
                     <div class="flex items-center">
                         <div
@@ -337,6 +359,27 @@ export default function CloudPage() {
                                                                 segment.videoDuration
                                                             }
                                                         </span>
+                                                        <Show
+                                                            when={
+                                                                segment.category ===
+                                                                "outro"
+                                                            }
+                                                        >
+                                                            <button
+                                                                class="btn btn-ghost btn-xs ml-auto text-primary"
+                                                                title="查看社区投票 / 隐藏 / 锁定状态"
+                                                                onClick={() =>
+                                                                    openSegment(
+                                                                        segment,
+                                                                    )
+                                                                }
+                                                            >
+                                                                <Vote
+                                                                    size={12}
+                                                                />
+                                                                社区
+                                                            </button>
+                                                        </Show>
                                                     </div>
                                                     <div class="text-[10px] text-base-content/40 font-mono break-all mt-1">
                                                         UUID: {segment.id}

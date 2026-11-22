@@ -3,10 +3,14 @@ import type {
     ApiLookupReason,
     ApiLookupResult,
     ApiSegment,
+    ApiSegmentInfo,
     BiliVideoPage,
     BiliVideoPageInfo,
+    SegmentInfoResult,
     SubmitResult,
     SubmitSegmentsParams,
+    VoteResult,
+    VoteType,
 } from "@/types/types";
 import { readCachedSegments, writeCachedSegments } from "@/utils/segmentCache";
 
@@ -35,6 +39,8 @@ export const SB_API_BASE = SB_API_IS_TEST
     : SB_API_BASE_PRODUCTION;
 
 export const SB_API_URL = `${SB_API_BASE}/skipSegments`;
+export const SB_SEGMENT_INFO_URL = `${SB_API_BASE}/segmentInfo`;
+export const SB_VOTE_URL = `${SB_API_BASE}/voteOnSponsorTime`;
 
 const REQUEST_TIMEOUT_MS = 8000;
 const SUBMIT_TIMEOUT_MS = 5000;
@@ -62,6 +68,15 @@ export function buildSegmentsUrl(bvid: string, cid?: string): string {
 function toNumber(value: unknown, fallback = 0): number {
     const n = typeof value === "number" ? value : Number(value);
     return Number.isFinite(n) ? n : fallback;
+}
+
+/** 扩展版本只用于请求头；测试环境没有 browser 时不影响逻辑 */
+function extensionVersion(): string {
+    try {
+        return browser.runtime.getManifest().version;
+    } catch {
+        return "unknown";
+    }
 }
 
 /**
@@ -282,6 +297,164 @@ export async function resolveVideoPage(
 
     // 找不到目标分P 时不要退回第 1 P，否则可能查询/提交到错误的 cid
     return info ? { cid: info.cid, duration: info.duration } : null;
+}
+
+function normalizeSegmentInfo(raw: Record<string, unknown>): ApiSegmentInfo {
+    const value = (key: string) => raw[key];
+    const text = (key: string) => {
+        const item = value(key);
+        return item == null ? "" : String(item);
+    };
+    const number = (key: string) => toNumber(value(key));
+
+    return {
+        videoID: text("videoID"),
+        cid: text("cid"),
+        startTime: number("startTime"),
+        endTime: number("endTime"),
+        votes: number("votes"),
+        locked: number("locked"),
+        UUID: text("UUID"),
+        userID: text("userID"),
+        timeSubmitted: number("timeSubmitted"),
+        views: number("views"),
+        category: text("category"),
+        actionType: text("actionType"),
+        videoDuration: number("videoDuration"),
+        hidden: number("hidden"),
+        reputation: number("reputation"),
+        shadowHidden: number("shadowHidden"),
+        hashedVideoID:
+            typeof value("hashedVideoID") === "string"
+                ? String(value("hashedVideoID"))
+                : undefined,
+        userAgent:
+            typeof value("userAgent") === "string"
+                ? String(value("userAgent"))
+                : undefined,
+    };
+}
+
+/** 查询单个片段的详细信息（GET /api/segmentInfo） */
+export async function getSegmentInfo(
+    uuid?: string,
+    force = false,
+): Promise<SegmentInfoResult> {
+    if (typeof uuid !== "string" || uuid.length === 0) {
+        return { ok: false, reason: "bad-request" };
+    }
+
+    const url = new URL(SB_SEGMENT_INFO_URL);
+    url.searchParams.set("UUID", uuid);
+
+    let response: Response;
+    try {
+        response = await fetch(url, {
+            signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+            headers: {
+                "x-ext-version": extensionVersion(),
+                ...(force ? { "x-skip-cache": "1" } : {}),
+            },
+        });
+    } catch (error) {
+        const name = (error as Error | undefined)?.name;
+        return {
+            ok: false,
+            reason: name === "TimeoutError" ? "timeout" : "network",
+        };
+    }
+
+    if (response.status === 404) {
+        return { ok: false, reason: "not-found" };
+    }
+    if (response.status === 429) {
+        return { ok: false, reason: "rate-limited" };
+    }
+    if (!response.ok) {
+        return {
+            ok: false,
+            reason: `http-${response.status}`,
+            message: await readErrorText(response),
+        };
+    }
+
+    let data: unknown;
+    try {
+        data = await response.json();
+    } catch {
+        return { ok: false, reason: "bad-json" };
+    }
+
+    const raw = Array.isArray(data) ? data[0] : data;
+    if (!raw || typeof raw !== "object") {
+        return { ok: false, reason: "not-found" };
+    }
+
+    return {
+        ok: true,
+        info: normalizeSegmentInfo(raw as Record<string, unknown>),
+    };
+}
+
+/** 对片段投票（POST /api/voteOnSponsorTime） */
+export async function voteOnSegment(
+    uuid: string,
+    userID: string,
+    type: VoteType,
+): Promise<VoteResult> {
+    if (!uuid || !userID || ![0, 1, 20].includes(type)) {
+        return { ok: false, reason: "bad-request" };
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(SB_VOTE_URL, {
+            method: "POST",
+            signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
+            headers: {
+                "content-type": "application/json",
+                "x-ext-version": extensionVersion(),
+            },
+            body: JSON.stringify({ UUID: uuid, userID, type }),
+        });
+    } catch (error) {
+        const name = (error as Error | undefined)?.name;
+        return {
+            ok: false,
+            reason: name === "TimeoutError" ? "timeout" : "network",
+        };
+    }
+
+    if (response.status === 400) {
+        return {
+            ok: false,
+            reason: "bad-request",
+            message: await readErrorText(response),
+        };
+    }
+    if (response.status === 403) {
+        return {
+            ok: false,
+            reason: "rejected",
+            message: await readErrorText(response),
+        };
+    }
+    if (response.status === 429) {
+        return {
+            ok: false,
+            reason: "rate-limited",
+            message: await readErrorText(response),
+        };
+    }
+    if (!response.ok) {
+        return {
+            ok: false,
+            reason: `http-${response.status}`,
+            message: await readErrorText(response),
+        };
+    }
+
+    return { ok: true };
 }
 
 /**

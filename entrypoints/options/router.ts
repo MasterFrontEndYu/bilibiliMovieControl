@@ -8,6 +8,7 @@ import {
     HouseHeart,
     RobotVacuum,
     ScanEye,
+    Vote,
 } from "@lucide/solid";
 /**
  * options 页面运行在 chrome-extension:// 协议下，
@@ -29,6 +30,12 @@ const routes = defineRoutes([
         path: "/cloud",
         component: lazy(() => import("./pages/Cloud.tsx")),
         info: { title: "云端片段", icon: Cloud, index: 2 },
+    },
+    {
+        path: "/segment",
+        component: lazy(() => import("./pages/Segment.tsx")),
+        // 从云端片段页的按钮进入，不放入侧边栏
+        info: { title: "", icon: Vote, index: 99 },
     },
     {
         path: "/manual",

@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
     buildSegmentsUrl,
+    getSegmentInfo,
     isValidBvid,
     normalizeApiSegments,
     resolveVideoPage,
     submitSkipSegments,
+    voteOnSegment,
 } from "../utils/sponsorblock";
 
 const VALID_BVID = "BV1M4sz6sEcu";
@@ -138,5 +140,86 @@ describe("submitSkipSegments", () => {
 
         expect(result).toEqual({ ok: false, reason: "network" });
         expect(posted).toBe(false);
+    });
+});
+
+describe("getSegmentInfo", () => {
+    test("解析 segmentInfo 数组并归一化字段", async () => {
+        globalThis.fetch = (async () =>
+            new Response(
+                JSON.stringify([
+                    {
+                        videoID: VALID_BVID,
+                        cid: 123,
+                        startTime: 10,
+                        endTime: 20,
+                        votes: 5,
+                        locked: 1,
+                        UUID: "uuid-1",
+                        userID: "public-user",
+                        timeSubmitted: 100,
+                        views: 30,
+                        category: "outro",
+                        actionType: "skip",
+                        videoDuration: 100,
+                        hidden: 1,
+                        reputation: 2.5,
+                        shadowHidden: 0,
+                    },
+                ]),
+            )) as unknown as typeof fetch;
+
+        const result = await getSegmentInfo("uuid-1", true);
+
+        expect(result.ok).toBe(true);
+        expect(result.info).toMatchObject({
+            videoID: VALID_BVID,
+            cid: "123",
+            startTime: 10,
+            endTime: 20,
+            votes: 5,
+            locked: 1,
+            UUID: "uuid-1",
+            hidden: 1,
+            reputation: 2.5,
+            shadowHidden: 0,
+        });
+    });
+
+    test("404 返回 not-found", async () => {
+        globalThis.fetch = (async () =>
+            new Response("", { status: 404 })) as unknown as typeof fetch;
+
+        expect(await getSegmentInfo("missing")).toEqual({
+            ok: false,
+            reason: "not-found",
+        });
+    });
+});
+
+describe("voteOnSegment", () => {
+    test("提交正确的投票 body", async () => {
+        let body: unknown;
+        globalThis.fetch = (async (
+            _input: RequestInfo | URL,
+            init?: RequestInit,
+        ) => {
+            body = JSON.parse(String(init?.body));
+            return new Response("");
+        }) as unknown as typeof fetch;
+
+        const userID = "a".repeat(40);
+        expect(await voteOnSegment("uuid-1", userID, 1)).toEqual({ ok: true });
+        expect(body).toEqual({ UUID: "uuid-1", userID, type: 1 });
+    });
+
+    test("403 返回 rejected", async () => {
+        globalThis.fetch = (async () =>
+            new Response("rejected", {
+                status: 403,
+            })) as unknown as typeof fetch;
+
+        const result = await voteOnSegment("uuid-1", "a".repeat(40), 0);
+        expect(result).toMatchObject({ ok: false, reason: "rejected" });
     });
 });

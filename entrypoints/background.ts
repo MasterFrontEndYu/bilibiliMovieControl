@@ -4,9 +4,11 @@ import { allowArchive, archiveLatest, archiveManual } from "@/utils/history";
 import { invalidateCachedSegments } from "@/utils/segmentCache";
 import {
     fetchVideoPages,
+    getSegmentInfo,
     getSkipSegments,
     resolveVideoPage,
     submitSkipSegments,
+    voteOnSegment,
 } from "@/utils/sponsorblock";
 
 /** 页面加载后等待多久再记录自动存档 */
@@ -127,6 +129,52 @@ export default defineBackground(() => {
                 );
                 void openOrFocusOptions(url).catch(() => undefined);
                 sendResponse({ ok: true });
+                return true;
+            }
+
+            case "SB_SEGMENT_INFO": {
+                const uuid = message.data?.uuid;
+                if (typeof uuid !== "string" || uuid.length === 0) {
+                    sendResponse({ ok: false, reason: "bad-request" });
+                    return true;
+                }
+
+                void (async () => {
+                    sendResponse(
+                        await getSegmentInfo(uuid, Boolean(message.data?.force)),
+                    );
+                })();
+                return true;
+            }
+
+            case "SB_VOTE": {
+                const data = message.data ?? {};
+                const type = Number(data.type);
+
+                if (
+                    typeof data.uuid !== "string" ||
+                    data.uuid.length === 0 ||
+                    typeof data.userID !== "string" ||
+                    data.userID.length < 30 ||
+                    ![0, 1, 20].includes(type)
+                ) {
+                    sendResponse({ ok: false, reason: "bad-request" });
+                    return true;
+                }
+
+                void (async () => {
+                    const result = await voteOnSegment(
+                        data.uuid,
+                        data.userID,
+                        type as 0 | 1 | 20,
+                    );
+
+                    if (result.ok && typeof data.bvid === "string") {
+                        await invalidateCachedSegments(data.bvid);
+                    }
+
+                    sendResponse(result);
+                })();
                 return true;
             }
 

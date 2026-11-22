@@ -83,7 +83,11 @@ export interface HistorySnapshot {
 export type VideoUIConfig = Config;
 
 export interface VideoUIHandle {
-    update: (config: VideoUIConfig, cloudSegments?: SkipSegment[]) => void;
+    update: (
+        config: VideoUIConfig,
+        cloudSegments?: SkipSegment[],
+        duration?: number,
+    ) => void;
     destroy: () => void;
 }
 
@@ -156,6 +160,43 @@ export interface ApiSegment {
     locked: number;
     votes: number;
     videoDuration: number; // 提交时的视频时长（秒）
+}
+
+/** GET /api/segmentInfo 返回的片段详情 */
+export interface ApiSegmentInfo {
+    videoID: string;
+    cid: string;
+    startTime: number;
+    endTime: number;
+    votes: number;
+    locked: number;
+    UUID: string;
+    userID: string; // 提交者的公开 ID
+    timeSubmitted: number; // 提交时间戳（毫秒；兼容秒级旧数据）
+    views: number;
+    category: string;
+    actionType: string;
+    videoDuration: number;
+    hidden: number; // 0 未隐藏 / 1 已隐藏 / 2 自动隐藏
+    reputation: number; // 提交者声誉
+    shadowHidden: number; // 0 未暗藏 / 1 暗藏
+    hashedVideoID?: string;
+    userAgent?: string;
+}
+
+export type VoteType = 0 | 1 | 20; // 点踩 / 点赞 / 撤销
+
+export interface SegmentInfoResult {
+    ok: boolean;
+    info?: ApiSegmentInfo;
+    reason?: ApiLookupReason;
+    message?: string;
+}
+
+export interface VoteResult {
+    ok: boolean;
+    reason?: ApiLookupReason;
+    message?: string;
 }
 
 export type ApiLookupReason =

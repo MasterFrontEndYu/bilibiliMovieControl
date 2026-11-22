@@ -1,5 +1,10 @@
 import { browser } from "wxt/browser";
 import { MIN_SEGMENT_SECONDS } from "@/utils/segments";
+import {
+    generateUserID,
+    MIN_USER_ID_LENGTH,
+    USER_ID_STORAGE_KEY,
+} from "@/utils/userId";
 import type {
     JumpPanelConfig,
     JumpPanelHandle,
@@ -11,9 +16,6 @@ import type {
 } from "@/types/types";
 
 const STYLE_ID = "bmc-jump-panel-style";
-
-const USER_ID_STORAGE_KEY = "sbUserID";
-const MIN_USER_ID_LENGTH = 30;
 
 const KIND_LABELS: Record<SegmentKind, string> = {
     skip: "片段跳过",
@@ -174,14 +176,6 @@ function effectiveEnd(segment: SkipSegment, videoDuration: number): number {
     return videoDuration > 0
         ? Math.min(segment.end, videoDuration)
         : segment.end;
-}
-
-/** 20 字节随机数 → 40 位十六进制字符串，满足服务端 ≥30 位的要求 */
-function generateUserID(): string {
-    const bytes = crypto.getRandomValues(new Uint8Array(20));
-    return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join(
-        "",
-    );
 }
 
 /**

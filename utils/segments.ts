@@ -137,6 +137,46 @@ export function parseCreatedSegments(created: unknown): SkipSegment[] {
 }
 
 /**
+ * 取实际生效的下一 P：
+ * - 手动 next 优先；手动异常地存在多条时也只取 start 最大的一条；
+ * - 没有手动 next 时，云端 next 先过滤与手动片段重叠的，再只取 start 最大的一条；
+ * - start <= 0 或 start >= 视频时长的候选直接丢弃。
+ */
+export function pickNextSegment(
+    manualSegments: SkipSegment[],
+    cloudSegments: SkipSegment[],
+    videoDuration = 0,
+): SkipSegment | null {
+    const hasDuration =
+        Number.isFinite(videoDuration) && videoDuration > 0;
+    const usable = (segment: SkipSegment) =>
+        segment.start > 0 &&
+        (!hasDuration || segment.start < videoDuration);
+
+    // 手动配置的下一 P 是用户明确指定的，优先级高于云端
+    const manualNext = manualSegments
+        .filter((segment) => segment.kind === "next" && usable(segment))
+        .sort((a, b) => b.start - a.start);
+
+    if (manualNext.length > 0) return manualNext[0]!;
+
+    // 云端 next 与播放逻辑保持一致：与任意手动片段重叠时忽略
+    const cloudEffective = cloudSegments.filter(
+        (segment) =>
+            !manualSegments.some(
+                (item) =>
+                    segment.start < item.end && segment.end > item.start,
+            ),
+    );
+
+    const cloudNext = cloudEffective
+        .filter((segment) => segment.kind === "next" && usable(segment))
+        .sort((a, b) => b.start - a.start);
+
+    return cloudNext[0] ?? null;
+}
+
+/**
  * 读取片段配置；首次运行时自动把旧的 opRanges / jumpConfig 迁移过来，
  * 迁移完成后删除旧键。
  */

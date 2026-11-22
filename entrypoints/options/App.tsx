@@ -1,6 +1,11 @@
 import { onSettled, type ParentProps } from "solid-js";
-import { useLocation, useNavigate } from "@solidjs/router";
+import {
+    useLocation,
+    useNavigate,
+    useSearchParams,
+} from "@solidjs/router";
 import { OptionsFooter } from "@/components/OptionsFooter";
+import { buildCloudPath, getCloudContext } from "@/utils/cloudContext";
 
 import { getSoftName } from "@/utils/bilibili";
 
@@ -11,6 +16,21 @@ import { Router } from "./router.ts";
 export default function Layout(props: ParentProps) {
   const navigate = useNavigate();
   const loc = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const param = (key: string) => {
+    const value = (searchParams as Record<string, unknown>)[key];
+    return typeof value === "string" ? value : "";
+  };
+
+  /** 云端片段侧边栏保留当前（或最近一次）的 BV / 分P */
+  const navHref = (path: string) => {
+    if (path !== "/cloud") return path;
+
+    const bvid = param("bvid") || getCloudContext().bvid;
+    const page = Number(param("page")) || getCloudContext().page;
+    return bvid ? buildCloudPath(bvid, page) : "/cloud";
+  };
 
   const navRoutes = () =>
     Router.routes.filter((route) => route.info?.title).sort((a, b) => (a.info?.index ?? 0) - (b.info?.index ?? 0));
@@ -27,10 +47,10 @@ export default function Layout(props: ParentProps) {
               {(link) => (
                 <li >
                   <a
-                    href={link.path}
+                    href={navHref(link.path)}
                     onClick={(e) => {
                       e.preventDefault();
-                      navigate(link.path);
+                      navigate(navHref(link.path));
                     }}
 
                     class={[

@@ -6,6 +6,7 @@ import type {
     VideoUIConfig,
     VideoUIHandle,
 } from "@/types/types";
+import { pickNextSegment } from "@/utils/segments";
 
 const ACTION_BUTTON_STYLE =
     "box-sizing:border-box;height:18px;padding:0 8px;border-radius:5px;" +
@@ -95,34 +96,6 @@ const formatTime = (seconds: number): string => {
 };
 
 /**
- * 取实际会先触发的下一 P：
- * 手动片段优先，云端片段与任意手动片段重叠时忽略（与 content 的播放逻辑一致）。
- */
-export function pickNextSegment(
-    manualSegments: SkipSegment[],
-    cloudSegments: SkipSegment[],
-): SkipSegment | null {
-    const cloudEffective = cloudSegments.filter(
-        (segment) =>
-            !manualSegments.some(
-                (item) => segment.start < item.end && segment.end > item.start,
-            ),
-    );
-
-    const candidates = [
-        ...manualSegments.filter(
-            (segment) => segment.kind === "next" && segment.start > 0,
-        ),
-        ...cloudEffective.filter(
-            (segment) => segment.kind === "next" && segment.start > 0,
-        ),
-    ];
-
-    candidates.sort((a, b) => a.start - b.start);
-    return candidates[0] ?? null;
-}
-
-/**
  * 页面内悬浮状态条（原生 DOM 实现，不依赖任何 UI 框架）。
  * 挂载到 WXT 注入的容器里，由调用方在配置变化时调用 update()。
  */
@@ -191,6 +164,7 @@ export function createVideoUI(
     const update = (
         cfg: VideoUIConfig,
         cloudSegments: SkipSegment[] = [],
+        duration = 0,
     ) => {
         const segments = cfg.segments ?? [];
         const skipSegments = segments.filter(
@@ -216,7 +190,7 @@ export function createVideoUI(
         );
 
         skip.textContent = `⏭ 片段跳过 ${skipSegments.length} 段`;
-        const nextSegment = pickNextSegment(segments, cloudSegments);
+        const nextSegment = pickNextSegment(segments, cloudSegments, duration);
         next.textContent = nextSegment
             ? `🔚  ${formatTime(nextSegment.start)}`
             : "🔚  未设置";
@@ -224,7 +198,9 @@ export function createVideoUI(
             ? `☁ 云端 ${cloudSkip + cloudNext} 个`
             : "☁ 云端 关";
         cloud.title = cfg.useCloudSegments
-            ? `云端片段：跳过 ${cloudSkip} / 下一P ${cloudNext}`
+            ? `云端片段：跳过 ${cloudSkip} / 下一P ${cloudNext}${
+                  cloudNext > 1 ? "（实际取 start 最大 1 条）" : ""
+              }`
             : "云端片段已关闭，可在设置页开启";
 
         badge.style.background = conflict ? "#f59e0b" : "#fb7299";

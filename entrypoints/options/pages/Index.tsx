@@ -203,7 +203,8 @@ export default function Home() {
                             </div>
                             <p class="m-0">
                                 状态条右侧的「云端数据」入口会带上当前 BV，
-                                打开按 cid / 分P 分组的云端片段列表。
+                                打开按 cid / 分P 分组的云端片段列表；
+                                侧边栏「云端片段」会保留当前 / 最近一次的 BV 与分P。
                             </p>
                         </div>
                     </div>
@@ -233,7 +234,8 @@ export default function Home() {
                     </p>
                     <p class="text-sm text-base-content/60 leading-relaxed m-0">
                         可在「云端片段」设置页开关是否参与跳转（默认开启）：intro /
-                        sponsor 作为跳过，outro 作为下一 P；与手动片段重叠时手动优先。
+                        sponsor 作为跳过，outro 作为下一 P；与手动片段重叠时手动优先，
+                        云端多条下一 P 时只取起点最大的一条。
                     </p>
 
                     <div class="bg-base-200/60 rounded-xl p-4 text-sm text-base-content/70 leading-relaxed">
