@@ -1,16 +1,8 @@
 // content/index.ts
 import { render } from "@solidjs/web";
-import { createSignal } from "solid-js";
 import { browser } from "wxt/browser";
 import {
-    initFrameAnalyzer,
     getMainVideo,
-    checkEndingByFrame,
-    resetFrameAnalyzer,
-    destroyFrameAnalyzer,
-} from "../utils/frameAnalyzer";
-import {
-    formatTime,
     toSeconds,
     TARGET_ID,
     BTN_CLASS,
@@ -26,15 +18,7 @@ export default defineContentScript({
 
     async main(ctx) {
         // ---------- 1. 配置管理（shortcut 一起交给 useConfig 同步） ----------
-        const { config } = useConfig([
-            "opRanges",
-            "jumpConfig",
-            "frameConfig",
-            "mode",
-            "isAutoHandle",
-            "shortcut",
-        ]);
-        const [isAnalyzing, setIsAnalyzing] = createSignal(false);
+        const { config } = useConfig(["opRanges", "jumpConfig", "shortcut"]);
 
         await initGlobalConfig();
 
@@ -63,19 +47,8 @@ export default defineContentScript({
             position: "inline",
             anchor: () => document.getElementById(TARGET_ID) as HTMLElement,
             onMount: (container) => {
-                if (!document.getElementById("bili-skip-style")) {
-                    const style = document.createElement("style");
-                    style.id = "bili-skip-style";
-                    style.textContent = `@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }`;
-                    document.head.appendChild(style);
-                }
                 return render(
-                    () => (
-                        <VideoUI
-                            config={config}
-                            isAnalyzing={isAnalyzing}
-                        />
-                    ),
+                    () => <VideoUI config={config} />,
                     container,
                 );
             },
@@ -131,11 +104,6 @@ export default defineContentScript({
         );
 
         // ---------- 6. 核心控制逻辑 ----------
-        let lastFrameCheckTime = 0;
-        // ⚠️ 与 frameAnalyzer.ts 的 blackFrameRequired / staticFrameRequired 联动：
-        // 200ms × 15 = 3s，200ms × 40 = 8s。改这里必须同步改阈值。
-        const FRAME_CHECK_INTERVAL = 200;
-
         const runControlLogic = () => {
             const video = getMainVideo();
             if (!video || video.readyState < 2) return;
@@ -150,34 +118,11 @@ export default defineContentScript({
                     return;
                 }
             }
-            // 切集
-            if (config.mode === "manual") {
-                const jumpTime = toSeconds(config.jumpConfig);
-                setIsAnalyzing(false);
-                if (jumpTime > 0 && cur >= jumpTime) {
-                    executeJump();
-                }
-            } else {
-                const analyzeStartTime = toSeconds(config.frameConfig);
-                // 注意：analyzeStartTime > 0 表示"0 秒视为不开启"，与设置页语义需一致
-                if (analyzeStartTime > 0 && cur >= analyzeStartTime) {
-                    if (!isAnalyzing()) setIsAnalyzing(true);
-                    const now = Date.now();
-                    if (now - lastFrameCheckTime >= FRAME_CHECK_INTERVAL) {
-                        lastFrameCheckTime = now;
-                        try {
-                            if (checkEndingByFrame(video)) {
-                                executeJump();
-                                setIsAnalyzing(false);
-                            }
-                        } catch (e) {
-                            lastFrameCheckTime = 0;
-                            console.warn("[Frame Analyze] 异常:", e);
-                        }
-                    }
-                } else {
-                    if (isAnalyzing()) setIsAnalyzing(false);
-                }
+
+            // 切集：到达设定时间点后点击「下一 P」
+            const jumpTime = toSeconds(config.jumpConfig);
+            if (jumpTime > 0 && cur >= jumpTime) {
+                executeJump();
             }
         };
 
@@ -186,7 +131,7 @@ export default defineContentScript({
         const mainLoop = async () => {
             try {
                 const isCol = !!document.querySelector(".video-pod");
-                const runControl = isCol && config.isAutoHandle;
+                const runControl = isCol;
 
                 updateUi(runControl);
 
@@ -221,15 +166,11 @@ export default defineContentScript({
                 (event as CustomEvent).detail?.newUrl || (event as any).newUrl;
             if (!newUrl) return;
             lastJumpTime = 0;
-            resetFrameAnalyzer();
-            setIsAnalyzing(false);
-            lastFrameCheckTime = 0;
         };
         ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
         // ---------- 9. 启动 ----------
         await waitForElement(TARGET_ID);
-        initFrameAnalyzer();
 
         ctx.setInterval(mainLoop, 200);
 
@@ -240,7 +181,6 @@ export default defineContentScript({
         ctx.onInvalidated(() => {
             browser.runtime.onMessage.removeListener(messageListener);
             updateUi(false);
-            destroyFrameAnalyzer();
         });
     },
 });

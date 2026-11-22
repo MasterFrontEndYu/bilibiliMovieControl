@@ -12,7 +12,7 @@ export default function AboutPage() {
                      {getSoftName()}
                 </h1>
                 <p class="text-base-content/70 text-base leading-relaxed">
-                    专为 Bilibili 合集视频打造的连播助手。通过像素级帧分析与灵活的存档机制，让你的追剧体验真正实现“无人值守”。
+                    专为 Bilibili 合集视频打造的连播助手。通过切集点自动跳转与灵活的存档机制，让你的追剧体验真正实现“无人值守”。
                 </p>
             </header>
 
@@ -30,10 +30,7 @@ export default function AboutPage() {
                 </section>
                 <section class="bg-base-100 p-6 my-2 rounded-2xl border border-base-300 shadow-sm">
                     <p class="m-0 text-sm text-base-content/70 leading-relaxed mt-2.5">
-                        <strong>缺点：</strong> 帧分析功能比较薄弱，仅可在黑底白字的演员表可用，还容易黑屏误触。
-                    </p>
-                    <p class="m-0 text-sm text-base-content/70 leading-relaxed mt-2.5">
-                        手动分析比较吃合集剪切点是否整齐，如果剪切点不整齐，可能会出现末尾提前跳转的可能，留提前量太多影响观看体验。
+                        <strong>缺点：</strong> 切集依赖合集剪切点是否整齐，各集删减不一致时可能出现末尾提前跳转；留提前量太多又会影响观看体验。
                     </p>
                 </section>
             </div>

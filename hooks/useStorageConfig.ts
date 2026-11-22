@@ -4,10 +4,7 @@ import type { BiliVideoConfig } from "@/types/types";
 
 const INITIAL_CONFIG: BiliVideoConfig = {
     opRanges: [],
-    frameConfig: { h: 0, m: 0, s: 0 },
     jumpConfig: { h: 0, m: 0, s: 0 },
-    mode: "manual" as const,
-    isAutoHandle: true,
     isPageReady: false,
     shortcut: "",
 };

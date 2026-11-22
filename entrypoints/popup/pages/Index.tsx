@@ -1,5 +1,5 @@
 // entrypoints/popup/App.tsx
-import { Show, For, createSignal, Switch, Match, onSettled } from "solid-js";
+import { Show, createSignal, onSettled } from "solid-js";
 import { TimeInput } from "@/components/TimeInput";
 import { HistoryList } from "@/components/HistoryList";
 import { browser } from "wxt/browser";
@@ -15,8 +15,6 @@ import { RotateCcw, RotateCwClock, SaveCheck, Settings } from '@lucide/solid';
 
 export default function Index() {
     const { config, update } = useConfig([
-        "mode",
-        "frameConfig",
         "jumpConfig",
         "opRanges",
         "isPageReady",
@@ -28,22 +26,10 @@ export default function Index() {
     const navigate = useNavigate();
 
     /**
-     * 保存模式切换
+     * 重置切集点
      */
-    const saveMode = async (newMode: "frame" | "manual") => {
-        update({ mode: newMode });
-    };
-
-    /**
-     * 应用配置：将当前所有状态写入 Storage 并广播给 Content Script
-     */
-    const applyConfig = async () => {
-        const zero = { h: 0, m: 0, s: 0 };
-        if (config.mode === "frame") {
-            update({ frameConfig: zero });
-        } else {
-            update({ jumpConfig: zero });
-        }
+    const resetJumpPoint = () => {
+        update({ jumpConfig: { h: 0, m: 0, s: 0 } });
     };
 
     /**
@@ -62,9 +48,7 @@ export default function Index() {
                     url: activeTab.url,
                 },
                 config: {
-                    mode: config.mode,
                     opRanges: config.opRanges,
-                    frameConfig: config.frameConfig,
                     jumpConfig: config.jumpConfig,
                 },
             },
@@ -149,46 +133,15 @@ export default function Index() {
 
             <div class="divider m-0">设置视频集合跳转</div>
 
-            <div class="flex gap-3 justify-center">
-                <For each={["frame", "manual"] as const}>
-                    {(m) => (
-                        <label
-                            class={`flex items-center gap-1 cursor-pointer ${config.mode === m ? "text-secondary" : ""
-                                }`}
-                        >
-                            <input
-                                type="radio"
-                                name="mode"
-                                class="radio radio-xs radio-secondary"
-                                checked={config.mode === m}
-                                onChange={() => saveMode(m)}
-                            />
-                            {m === "frame" ? "帧分析" : "手动切集"}
-                        </label>
-                    )}
-                </For>
-            </div>
-
             <div class="flex flex-col gap-2.5">
-                <Switch>
-                    <Match when={config.mode === "frame"}>
-                        <TimeInput
-                            label="帧分析"
-                            value={config.frameConfig}
-                            onChange={(next) => update({ frameConfig: next })}
-                        />
-                    </Match>
-                    <Match when={config.mode === "manual"}>
-                        <TimeInput
-                            label="切&emsp;集"
-                            value={config.jumpConfig}
-                            onChange={(next) => update({ jumpConfig: next })}
-                        />
-                    </Match>
-                </Switch>
+                <TimeInput
+                    label="切&emsp;集"
+                    value={config.jumpConfig}
+                    onChange={(next) => update({ jumpConfig: next })}
+                />
             </div>
 
-            <button class="btn btn-warning btn-sm w-full" onClick={applyConfig}>
+            <button class="btn btn-warning btn-sm w-full" onClick={resetJumpPoint}>
                 <RotateCcw size={12} />
                 重置
             </button>

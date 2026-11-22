@@ -94,7 +94,7 @@ export const TimeInput: Component<TimeInputProps> = (props) => {
 
     onSettled(() => {
         return () => {
-            if (timer) flush(); // 切换 mode / 关闭 popup 时补交未提交草稿
+            if (timer) flush(); // 切换页面 / 关闭 popup 时补交未提交草稿
         };
     });
 

@@ -2,27 +2,19 @@ import { createMemo, Show } from "solid-js";
 import { formatTime, toSeconds } from "@/utils/bilibili";
 import type { BiliVideoConfig } from "@/types/types";
 
-type VideoUIConfig = Pick<
-    BiliVideoConfig,
-    "opRanges" | "jumpConfig" | "frameConfig" | "mode"
->;
+type VideoUIConfig = Pick<BiliVideoConfig, "opRanges" | "jumpConfig">;
 
 interface VideoUIProps {
     config: VideoUIConfig;
-    isAnalyzing: () => boolean;
 }
 
 export const VideoUI = (props: VideoUIProps) => {
-    /** 当前模式的跳转点（秒） */
-    const jumpPoint = createMemo(() =>
-        props.config.mode === "manual"
-            ? toSeconds(props.config.jumpConfig)
-            : toSeconds(props.config.frameConfig),
-    );
+    /** 切集点（秒），0 视为未设置 */
+    const jumpPoint = createMemo(() => toSeconds(props.config.jumpConfig));
 
     /**
-     * opRanges 中是否存在 end 严格大于当前跳转点的段。
-     * 跳转点 <= 0 视为未启用，不提示。
+     * opRanges 中是否存在 end 大于等于切集点的段。
+     * 切集点 <= 0 视为未启用，不提示。
      */
     const hasConflict = createMemo(() => {
         const jp = jumpPoint();
@@ -64,22 +56,10 @@ export const VideoUI = (props: VideoUIProps) => {
                 </span>
                 <span style="display:inline-block;width: 2px;height: 16px;background: rgba(255,255,255,0.5);"></span>
                 <span style="display:inline-block;">
-                    {props.config.mode === "manual"
-                        ? `🏁 切集起点: ${formatTime(props.config.jumpConfig)}`
-                        : `🔍 分析起点: ${formatTime(
-                              props.config.frameConfig,
-                          )}`}
-                </span>
-                <span
-                    style={{
-                        display: "inline-block",
-                        width: "8px",
-                        "margin-left": "4px",
-                        animation: "blink 1s infinite",
-                        color: "#fff",
-                    }}
-                >
-                    {props.isAnalyzing() ? "●" : ""}
+                    🏁 切集点:{" "}
+                    {jumpPoint() > 0
+                        ? formatTime(props.config.jumpConfig)
+                        : "未设置"}
                 </span>
             </div>
             <Show when={hasConflict()}>

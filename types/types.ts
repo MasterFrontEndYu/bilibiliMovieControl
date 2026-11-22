@@ -1,17 +1,14 @@
 interface Config {
     opRanges: TimeRange[]; // 跳过列表
-    frameConfig: TimePoint; // 帧分析点
-    jumpConfig: TimePoint; // 手动切集点
-    mode: "frame" | "manual"; // 当前模式
+    jumpConfig: TimePoint; // 切集点
     shortcut: string;
 }
 
 export interface BiliVideoConfig extends Config {
-    isAutoHandle: boolean;
     isPageReady: boolean;
 }
 
-export interface HistoryConfig extends Config {
+export interface HistoryConfig extends Omit<Config, "shortcut"> {
     id: number;
     title: string;
     url: string;

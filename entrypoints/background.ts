@@ -1,11 +1,62 @@
 import { browser } from "wxt/browser";
-import { getCollectionTitle } from "@/utils/bilibili";
+import {
+    cleanBiliUrl,
+    getCollectionTitle,
+    MAX_HISTORY_LENGTH,
+} from "@/utils/bilibili";
 import type { HistoryConfig, TimePoint, TimeRange } from "@/types/types";
-
-import { MAX_HISTORY_LENGTH } from "@/utils/bilibili";
 
 const DEBOUNCE_TIME = 2000;
 const processedLogs = new Map<string, number>();
+
+/** 历史归档类型：latest = 自动存档，pinned = 手动存档 */
+type HistoryKind = "latest" | "pinned";
+
+const HISTORY_STORAGE_KEY: Record<HistoryKind, string> = {
+    latest: "latestHistory",
+    pinned: "pinnedHistory",
+};
+
+/** 两种存档共用的快照字段 */
+interface HistorySnapshot {
+    id?: number;
+    title: string;
+    url: string;
+    opRanges: TimeRange[];
+    jumpConfig: TimePoint;
+}
+
+/**
+ * 自动存档 / 手动存档共用的落库逻辑：
+ * 按清理后的 URL 去重 → 新记录置顶 → 截断到上限 → 写入对应 storage key。
+ * @returns 写入后的完整列表
+ */
+async function upsertHistory(
+    kind: HistoryKind,
+    snapshot: HistorySnapshot,
+): Promise<HistoryConfig[]> {
+    const storageKey = HISTORY_STORAGE_KEY[kind];
+    const stored = await browser.storage.local.get({ [storageKey]: [] });
+    const list = (stored[storageKey] as HistoryConfig[] | undefined) ?? [];
+    const url = cleanBiliUrl(snapshot.url);
+
+    const item: HistoryConfig = {
+        id: snapshot.id ?? 0,
+        title: snapshot.title,
+        url,
+        time: Date.now(),
+        opRanges: snapshot.opRanges,
+        jumpConfig: snapshot.jumpConfig,
+    };
+
+    const next = [
+        item,
+        ...list.filter((entry) => cleanBiliUrl(entry.url) !== url),
+    ].slice(0, MAX_HISTORY_LENGTH);
+
+    await browser.storage.local.set({ [storageKey]: next });
+    return next;
+}
 
 export default defineBackground(() => {
     /**
@@ -13,7 +64,7 @@ export default defineBackground(() => {
      */
     browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === "DO_ARCHIVE") {
-            handleArchiveLogic(message.data.tab, message.data.config).then(
+            handleManualArchive(message.data.tab, message.data.config).then(
                 (newPinned) => {
                     sendResponse({ success: true, pinnedHistory: newPinned });
                 },
@@ -23,100 +74,67 @@ export default defineBackground(() => {
     });
 
     /**
-     * 核心：处理手动存档 (Pinned)
+     * 手动存档 (Pinned)：由 Popup 的「手动存档」按钮触发
      */
-    const handleArchiveLogic = async (activeTab: any, config: any) => {
-        const colTitle = await getCollectionTitle(activeTab.id);
+    const handleManualArchive = async (activeTab: any, config: any) => {
+        const title = await getCollectionTitle(activeTab.id);
 
-        if (colTitle) {
-            const currentData: HistoryConfig = {
-                id: activeTab?.id,
-                title: colTitle,
-                url: cleanBiliUrl(activeTab?.url),
-                time: Date.now(),
-                mode: config.mode,
-                opRanges: config.opRanges,
-                frameConfig: config.frameConfig,
-                jumpConfig: config.jumpConfig,
-            };
+        if (!title) return;
 
-            const res = await browser.storage.local.get("pinnedHistory");
+        const list = await upsertHistory("pinned", {
+            id: activeTab.id,
+            title,
+            url: activeTab.url,
+            opRanges: config.opRanges,
+            jumpConfig: config.jumpConfig,
+        });
 
-            const history = (res.pinnedHistory as HistoryConfig[]) || [];
-
-            const filteredHistory = history.filter(
-                (item: HistoryConfig) =>
-                    cleanBiliUrl(item.url) !== cleanBiliUrl(activeTab.url),
-            );
-
-            const newHistory = [currentData, ...filteredHistory].slice(
-                0,
-                MAX_HISTORY_LENGTH,
-            );
-
-            await browser.storage.local.set({ pinnedHistory: newHistory });
-            return newHistory.slice(0, 3);
-        }
+        // Popup 只展示最近 3 条
+        return list.slice(0, 3);
     };
 
     /**
-     * 自动记录最近历史 (Latest)
+     * 自动存档 (Latest)：页面加载完成后记录当前配置快照
      */
     browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+        // 等页面与配置稳定后再记录
         await new Promise((resolve) => setTimeout(resolve, 4000));
-        if (
-            changeInfo.status === "complete" &&
-            tab.url?.includes("bilibili.com/video")
-        ) {
-            const rawUrl: string = cleanBiliUrl(tab.url || "") || "";
-            const now = Date.now();
 
-            // 防抖
-            const lastTime = processedLogs.get(rawUrl) || 0;
-            if (now - lastTime < DEBOUNCE_TIME) return;
-
-            processedLogs.set(rawUrl, now);
-            if (processedLogs.size > 50) {
-                // 防止 Map 过大
-                const firstKey = processedLogs.keys().next().value;
-                if (firstKey) processedLogs.delete(firstKey);
-            }
-
-            const colTitle = await getCollectionTitle(tabId);
-
-            if (colTitle) {
-                // 读取当前最新的配置快照
-                const storage = await browser.storage.local.get({
-                    latestHistory: [],
-                    opRanges: [],
-                    frameConfig: { h: 0, m: 0, s: 0 },
-                    jumpConfig: { h: 0, m: 0, s: 0 },
-                    mode: "frame",
-                });
-
-                const newItem: HistoryConfig = {
-                    id: tabId,
-                    title: colTitle,
-                    url: rawUrl,
-                    time: now,
-                    opRanges: storage.opRanges as TimeRange[],
-                    frameConfig: storage.frameConfig as TimePoint,
-                    jumpConfig: storage.jumpConfig as TimePoint,
-                    mode: storage.mode as "frame" | "manual",
-                };
-
-                const history = (storage.latestHistory as any[]) || [];
-                const filteredLatest = history.filter(
-                    (item: any) => cleanBiliUrl(item.url) !== rawUrl,
-                );
-
-                const newLatest = [newItem, ...filteredLatest].slice(
-                    0,
-                    MAX_HISTORY_LENGTH,
-                );
-                await browser.storage.local.set({ latestHistory: newLatest });
-            }
+        const pageUrl = tab.url;
+        if (changeInfo.status !== "complete" || !pageUrl?.includes("bilibili.com/video")) {
+            return;
         }
+
+        const cleanUrl = cleanBiliUrl(pageUrl);
+        const now = Date.now();
+
+        // 同一 URL 短时间内只记录一次
+        const lastTime = processedLogs.get(cleanUrl) || 0;
+        if (now - lastTime < DEBOUNCE_TIME) return;
+
+        processedLogs.set(cleanUrl, now);
+        if (processedLogs.size > 50) {
+            // 防止 Map 无限增长
+            const firstKey = processedLogs.keys().next().value;
+            if (firstKey) processedLogs.delete(firstKey);
+        }
+
+        const title = await getCollectionTitle(tabId);
+        if (!title) return;
+
+        // 读取当前最新的配置快照
+        const storage = await browser.storage.local.get({
+            opRanges: [],
+            jumpConfig: { h: 0, m: 0, s: 0 },
+        });
+
+        await upsertHistory("latest", {
+            id: tabId,
+            title,
+            url: cleanUrl,
+            opRanges: storage.opRanges as TimeRange[],
+            jumpConfig: storage.jumpConfig as TimePoint,
+        });
     });
 
     /**

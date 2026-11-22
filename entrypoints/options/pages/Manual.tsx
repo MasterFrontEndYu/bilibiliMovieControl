@@ -63,7 +63,7 @@ export default function ManualPage() {
                         手动存档管理
                     </h1>
                     <p class="text-base-content/70 text-base leading-relaxed">
-                        用户手动存档的视频，凡是存档的视频都是符合状态设置的。
+                        用户手动存档的视频，凡是存档的视频都是符合连播条件的。
                     </p>
                 </div>
                 <Show when={pinnedHistory().length > 0}>
@@ -87,10 +87,11 @@ export default function ManualPage() {
                                 </div>
                                 <div class="flex gap-5 text-sm text-base-content/70">
                                     <span>
-                                        ⏱️ 跳过: {item.frameConfig.m}分
-                                        {item.frameConfig.s}秒 -{" "}
-                                        {item.frameConfig.m}分
-                                        {item.frameConfig.s}秒
+                                        ⏱️ 切集点: {item.jumpConfig?.m ?? 0}分
+                                        {item.jumpConfig?.s ?? 0}秒
+                                    </span>
+                                    <span>
+                                        ⏭️ 跳过 {item.opRanges?.length ?? 0} 段
                                     </span>
                                     <span>
                                         📅 记录于:{" "}

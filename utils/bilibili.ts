@@ -79,6 +79,14 @@ export const getCollectionTitle = async (tabId: number): Promise<string> => {
 };
 
 /**
+ * 获取当前页面的 B 站主视频元素
+ */
+export const getMainVideo = (): HTMLVideoElement | null =>
+    document.querySelector<HTMLVideoElement>(".bpx-player-video video") ||
+    document.querySelector<HTMLVideoElement>("#bilibili-player video") ||
+    document.querySelector<HTMLVideoElement>("video");
+
+/**
  * 获取插件名称和版本号
  */
 export const getSoftName = () => browser.runtime.getManifest().name;

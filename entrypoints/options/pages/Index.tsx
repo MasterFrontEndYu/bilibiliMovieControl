@@ -61,48 +61,21 @@ export default function Home() {
                             <span class="text-secondary">▶️</span> 跳转下一 P
                         </h2>
                         <p class="text-sm text-base-content/80 leading-relaxed">
-                            两种模式可选，适配不同跳转方式。
+                            视频播放到设定的切集点后，自动点击「下一 P」，实现无人值守连播。
                         </p>
                         <div class="space-y-3 mt-1">
                             <div class="flex items-start bg-base-200/50 rounded-xl p-3">
-                                <span class="badge badge-primary badge-md w-18 mt-0.5 mr-2">
-                                    帧分析
-                                </span>
-                                <p class=" flex-1 text-sm text-base-content/70 leading-relaxed m-0">
-                                    在剧集结束前设定时间点，检测白底黑字（如演职员表）自动跳转。
-                                    <br />
-                                    <span class="text-xs text-base-content/50">
-                                        适合美剧、电影片段合集（注意：黑屏可能误触）
-                                    </span>
-                                </p>
-                            </div>
-                            <div class="flex items-start bg-base-200/50 rounded-xl p-3">
                                 <span class="badge badge-secondary badge-md w-18 mt-0.5 mr-2">
-                                    手动
+                                    切集点
                                 </span>
-                                <p class="felx-1 text-sm text-base-content/70 leading-relaxed m-0">
-                                    视频播放到设定时间点直接跳转。
+                                <p class="flex-1 text-sm text-base-content/70 leading-relaxed m-0">
+                                    精确到秒（时/分/秒），到达该时间点即切换下一 P。
                                     <br />
                                     <span class="text-xs text-base-content/50">
-                                        适合时间点稳定的剧集，多删减内容的切片时间点会不一致
+                                        适合每集时长稳定的合集；各集删减不一致时可适当调整时间点
                                     </span>
                                 </p>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
-                <div class="card-body gap-3 p-6">
-                    <h2 class="card-title text-base font-bold text-base-content flex items-center gap-2">
-                        <span class="text-accent">📈</span> 状态设置
-                    </h2>
-                    <div class="">
-                        <div class="bg-base-200/60 rounded-xl p-4">
-                            <p class="text-sm text-base-content/60 mt-1">
-                                用户可以设置是否处理和合集。
-                            </p>
                         </div>
                     </div>
                 </div>
