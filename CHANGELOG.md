@@ -1,5 +1,21 @@
 # B 站连播助手 (Bilibili Movie Control)
 
+## 1.4.0
+
+### Minor Changes
+
+- afb0a23: - 统一为「片段」模型：`skip`（片段跳过）与 `next`（到点下一 P），自动迁移旧的 `opRanges` / `jumpConfig`
+  - 播放页新增「查看 / 设置」浮动窗口：可拖拽；查看片段、编辑起止与类型、预览 / 定位 / 删除
+  - 接入 BilibiliSponsorBlock：查询云端片段、上传手动片段，新增 `bsbsb.top` host 权限
+  - 云端片段可开关是否参与播放：设置页「云端片段」提供 aura 开关，默认开启；intro / sponsor 作为跳过、outro 作为下一 P，手动片段优先
+  - 云端片段按 cid 查询与展示，状态条新增「云端数据」入口（带 BV 打开设置页）；BiliSB 片段用 ⏭ / P 区分跳过与下一 P；状态条「下一 P」直接显示实际起点时间（手动优先；云端多条只取 start 最大的一条）；侧边栏「云端片段」会保留当前 / 最近一次 BV 与分 P
+  - 云端数据页的 P 片段新增「社区」入口：详情页展示 votes / views / hidden / locked / reputation，并支持点赞 / 点踩 / 撤销投票
+  - 移除内置帧分析、状态设置页与 `isAutoHandle`、自定义快捷键
+  - 移除 Popup 的多片段编辑页，片段统一在播放页「设置」里编辑
+  - API 区分正式 / 测试环境：默认正式环境，可用 `VITE_SB_API=test` 切到测试环境（测试环境只支持查询，不支持上传）
+  - 内容脚本改为原生 DOM 并直接读取 `storage.local`，移除页面内的 SolidJS 依赖
+  - 图标只保留一套，去掉 active / inactive 切换；Popup 改为片段概览
+
 ## 1.3.6
 
 ### Patch Changes
