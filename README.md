@@ -62,7 +62,7 @@ API 环境：
 - 正式：`https://bsbsb.top/api/skipSegments`
 - 测试：`https://bsbsb.top/test/api/skipSegments`
 
-开发构建使用测试环境，正式构建使用正式环境。
+默认使用正式环境；需要查询测试环境时，启动前设置 `VITE_SB_API=test`。测试环境只支持查询，不支持上传。
 
 ## 📎 第三方引用与许可证
 

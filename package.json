@@ -13,6 +13,7 @@
         "zip": "wxt zip",
         "zip:firefox": "wxt zip -b firefox",
         "compile": "tsc --noEmit",
+        "check:submission": "node scripts/check-bsbsb-submission.mjs",
         "postinstall": "wxt prepare",
         "change": "bun changeset",
         "version": "bun changeset version",

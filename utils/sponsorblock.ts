@@ -3,6 +3,7 @@ import type {
     ApiLookupReason,
     ApiLookupResult,
     ApiSegment,
+    BiliVideoPage,
     SubmitResult,
     SubmitSegmentsParams,
 } from "@/types/types";
@@ -21,8 +22,14 @@ import { readCachedSegments, writeCachedSegments } from "@/utils/segmentCache";
 export const SB_API_BASE_PRODUCTION = "https://bsbsb.top/api";
 export const SB_API_BASE_TEST = "https://bsbsb.top/test/api";
 
-/** 开发构建走测试环境，正式构建走正式环境 */
-export const SB_API_BASE = import.meta.env.DEV
+/**
+ * 默认使用正式环境。
+ * 需要查询测试环境时，在启动前设置环境变量 `VITE_SB_API=test`。
+ * 注意：测试环境只提供查询，上传（POST）会返回 405。
+ */
+export const SB_API_IS_TEST = import.meta.env.VITE_SB_API === "test";
+
+export const SB_API_BASE = SB_API_IS_TEST
     ? SB_API_BASE_TEST
     : SB_API_BASE_PRODUCTION;
 
@@ -61,7 +68,7 @@ function toNumber(value: unknown, fallback = 0): number {
  * 2. 按视频分组：[{ videoID, segments: [ ... ] }]
  * 同时丢弃时间非法（NaN / end <= start）的脏数据。
  */
-export function normalizeSegments(raw: unknown): ApiSegment[] {
+export function normalizeApiSegments(raw: unknown): ApiSegment[] {
     const segments: ApiSegment[] = [];
     const visited = new Set<object>();
 
@@ -140,7 +147,7 @@ async function requestSkipSegments(
     }
 
     try {
-        return normalizeSegments(await response.json());
+        return normalizeApiSegments(await response.json());
     } catch {
         throw new ApiRequestError("bad-json");
     }
@@ -205,6 +212,44 @@ export async function getSkipSegments(
     return task;
 }
 
+async function readErrorText(response: Response): Promise<string> {
+    try {
+        const text = (await response.text()).trim();
+        return text.slice(0, 300);
+    } catch {
+        return "";
+    }
+}
+
+/** 用 bilibili pagelist 补齐当前分P 的 cid 和规范时长 */
+async function resolveVideoPage(
+    bvid: string,
+    page: number,
+): Promise<BiliVideoPage | null> {
+    try {
+        const response = await fetch(
+            `https://api.bilibili.com/x/player/pagelist?bvid=${encodeURIComponent(bvid)}`,
+            { signal: AbortSignal.timeout(3000) },
+        );
+        if (!response.ok) return null;
+
+        const data = (await response.json()) as {
+            data?: Array<{ page?: number; cid?: number | string; duration?: number }>;
+        };
+        const pages = Array.isArray(data?.data) ? data.data : [];
+        const info = pages.find((item) => item.page === page) ?? pages[0];
+
+        if (!info?.cid) return null;
+
+        return {
+            cid: String(info.cid),
+            duration: Number(info.duration) || 0,
+        };
+    } catch {
+        return null;
+    }
+}
+
 /**
  * 提交片段到 bsbsb.top（POST /api/skipSegments）。
  * 需要调用方提供私人 userID；视频时长用于服务端判断是否换源。
@@ -212,6 +257,10 @@ export async function getSkipSegments(
 export async function submitSkipSegments(
     params: SubmitSegmentsParams,
 ): Promise<SubmitResult> {
+    if (SB_API_IS_TEST) {
+        return { ok: false, reason: "test-env" };
+    }
+
     if (!isValidBvid(params.bvid)) {
         return { ok: false, reason: "bad-bvid" };
     }
@@ -220,12 +269,19 @@ export async function submitSkipSegments(
         return { ok: false, reason: "bad-request" };
     }
 
+    const resolved = await resolveVideoPage(params.bvid, params.page ?? 1);
+    const cid = params.cid ?? resolved?.cid;
+    const videoDuration =
+        resolved && resolved.duration > 0
+            ? resolved.duration
+            : params.videoDuration;
+
     const payload = {
         videoID: params.bvid,
-        cid: params.cid,
+        cid,
         userID: params.userID,
         userAgent: navigator.userAgent,
-        videoDuration: params.videoDuration,
+        videoDuration,
         segments: params.segments.map((segment) => ({
             segment: [segment.start, segment.end],
             category: segment.category ?? "sponsor",
@@ -253,12 +309,44 @@ export async function submitSkipSegments(
         };
     }
 
-    if (response.status === 400) return { ok: false, reason: "bad-request" };
-    if (response.status === 403) return { ok: false, reason: "rejected" };
-    if (response.status === 409) return { ok: false, reason: "duplicate" };
-    if (response.status === 429) return { ok: false, reason: "rate-limited" };
+    if (response.status === 400) {
+        const message = await readErrorText(response);
+        console.warn("[SB] 上传失败 400", message);
+        return {
+            ok: false,
+            reason: "bad-request",
+            message,
+        };
+    }
+    if (response.status === 403) {
+        return {
+            ok: false,
+            reason: "rejected",
+            message: await readErrorText(response),
+        };
+    }
+    if (response.status === 409) {
+        return {
+            ok: false,
+            reason: "duplicate",
+            message: await readErrorText(response),
+        };
+    }
+    if (response.status === 429) {
+        return {
+            ok: false,
+            reason: "rate-limited",
+            message: await readErrorText(response),
+        };
+    }
     if (!response.ok) {
-        return { ok: false, reason: `http-${response.status}` };
+        const message = await readErrorText(response);
+        console.warn("[SB] 上传失败", response.status, message);
+        return {
+            ok: false,
+            reason: `http-${response.status}`,
+            message,
+        };
     }
 
     let created: unknown;

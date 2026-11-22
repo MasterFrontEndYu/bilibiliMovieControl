@@ -29,6 +29,7 @@ const REASON_TEXT: Record<string, string> = {
     rejected: "上传被服务端拒绝（403）",
     duplicate: "这段内容已经上传过（409）",
     "rate-limited": "上传过于频繁，请稍后再试",
+    "test-env": "测试环境不支持上传，请使用正式环境",
     timeout: "请求超时，请稍后重试",
     network: "网络异常，请检查网络后重试",
     "not-found": "接口未找到",
@@ -795,10 +796,15 @@ export function createJumpPanel(
                 mergeCreatedSegments(result.created);
             } else {
                 const reason = result.reason ?? "";
-                showStatus(
-                    REASON_TEXT[reason] ?? `上传失败（${reason || "未知错误"}）`,
-                    "error",
-                );
+                const base =
+                    REASON_TEXT[reason] ??
+                    `上传失败（${reason || "未知错误"}）`;
+                const message = result.message
+                    ? `${base}：${result.message}`
+                    : base;
+
+                console.warn("[BMC] 上传失败", result);
+                showStatus(message, "error");
             }
         } catch {
             showStatus("上传失败：网络异常，请稍后重试", "error");

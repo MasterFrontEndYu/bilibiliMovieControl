@@ -86,9 +86,13 @@ export default defineContentScript({
         const submitSegments = async (
             payload: JumpPanelSubmitPayload,
         ): Promise<SubmitResult> => {
+            const page = Number(
+                new URL(location.href).searchParams.get("p"),
+            ) || 1;
+
             const result = (await browser.runtime.sendMessage({
                 type: "SB_SUBMIT",
-                data: payload,
+                data: { ...payload, page },
             })) as SubmitResult | undefined;
 
             return result ?? { ok: false, reason: "network" };

@@ -136,7 +136,9 @@ export default function Home() {
                             <div>测试：https://bsbsb.top/test/api/skipSegments</div>
                         </div>
                         <p class="m-0 mt-2 text-xs text-base-content/50">
-                            开发构建使用测试环境，正式构建使用正式环境；两套环境数据独立。
+                            默认使用正式环境；需要查询测试环境时，启动前设置
+                            <code class="mx-1">VITE_SB_API=test</code>。
+                            测试环境只支持查询，不支持上传。
                         </p>
                     </div>
                 </div>

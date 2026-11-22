@@ -161,6 +161,7 @@ export type ApiLookupReason =
     | "not-found"
     | "rate-limited"
     | "rejected"
+    | "test-env"
     | "timeout"
     | `http-${number}`;
 
@@ -182,15 +183,25 @@ export interface SubmitSegmentInput {
 export interface SubmitSegmentsParams {
     bvid: string;
     cid?: string;
+    /** 分P 序号，缺省为 1 */
+    page?: number;
     videoDuration: number;
     userID: string;
     segments: SubmitSegmentInput[];
+}
+
+/** bilibili pagelist 里的分P信息（用于补 cid / 规范时长） */
+export interface BiliVideoPage {
+    cid: string;
+    duration: number;
 }
 
 export interface SubmitResult {
     ok: boolean;
     reason?: ApiLookupReason;
     created?: unknown;
+    /** 服务端返回的错误文本（如果有） */
+    message?: string;
 }
 
 // ============================================================
