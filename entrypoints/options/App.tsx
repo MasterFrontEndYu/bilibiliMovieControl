@@ -68,10 +68,6 @@ export default function Layout(props: ParentProps) {
                 {props.children}
                 <OptionsFooter />
             </main>
-
-            <style>{`
-                .active-link { background: #ffeef3 !important; color: #fb7299 !important; font-weight: bold; }
-            `}</style>
         </div>
     );
 }

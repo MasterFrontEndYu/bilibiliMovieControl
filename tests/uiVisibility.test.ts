@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { DEFAULT_UI, isUiEmpty, normalizeUi } from "../utils/uiVisibility";
+import {
+    DEFAULT_UI,
+    hasVisibleRow,
+    isUiEmpty,
+    normalizeUi,
+} from "../utils/uiVisibility";
 
 describe("normalizeUi", () => {
     test("缺失 / 非法输入回落到全显示", () => {
@@ -17,6 +22,24 @@ describe("normalizeUi", () => {
         });
     });
 
+    test("旧版本没有进度条开关时补默认为开启", () => {
+        // 模拟只存了六项的老数据
+        expect(
+            normalizeUi({
+                actionView: true,
+                actionSubmit: true,
+                cloudLink: true,
+                statusSkip: true,
+                statusNext: true,
+                statusCloud: true,
+            }),
+        ).toEqual({
+            ...DEFAULT_UI,
+            progressMarkers: true,
+            idleMarkers: true,
+        });
+    });
+
     test("非布尔值被忽略（防止 storage 脏数据）", () => {
         expect(
             normalizeUi({
@@ -28,6 +51,37 @@ describe("normalizeUi", () => {
     });
 });
 
+describe("hasVisibleRow", () => {
+    test("进度条开关不影响顶部那一行", () => {
+        expect(
+            hasVisibleRow({
+                actionView: false,
+                actionSubmit: false,
+                cloudLink: false,
+                statusSkip: false,
+                statusNext: false,
+                statusCloud: false,
+                progressMarkers: true,
+                idleMarkers: true,
+            }),
+        ).toBe(false);
+    });
+
+    test("任意一个行内项可见就算可见", () => {
+        expect(
+            hasVisibleRow({
+                ...DEFAULT_UI,
+                actionView: false,
+                actionSubmit: false,
+                cloudLink: false,
+                statusSkip: false,
+                statusNext: false,
+                statusCloud: true,
+            }),
+        ).toBe(true);
+    });
+});
+
 describe("isUiEmpty", () => {
     test("默认不全空", () => {
         expect(isUiEmpty(DEFAULT_UI)).toBe(false);
@@ -36,12 +90,15 @@ describe("isUiEmpty", () => {
     test("任意一项可见就不算空", () => {
         expect(
             isUiEmpty({
+                ...DEFAULT_UI,
                 actionView: false,
                 actionSubmit: false,
                 cloudLink: false,
                 statusSkip: false,
                 statusNext: false,
-                statusCloud: true,
+                statusCloud: false,
+                progressMarkers: false,
+                idleMarkers: true,
             }),
         ).toBe(false);
     });
@@ -55,6 +112,8 @@ describe("isUiEmpty", () => {
                 statusSkip: false,
                 statusNext: false,
                 statusCloud: false,
+                progressMarkers: false,
+                idleMarkers: false,
             }),
         ).toBe(true);
     });

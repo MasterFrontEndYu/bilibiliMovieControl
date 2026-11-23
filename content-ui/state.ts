@@ -7,6 +7,7 @@ import type {
     UiVisibility,
 } from "@/types/types";
 import { DEFAULT_UI } from "@/utils/uiVisibility";
+import { createDefaultConfig } from "@/utils/configDefaults";
 
 /** content 脚本与 Solid UI 之间共享的状态 */
 export interface ContentUiState {
@@ -17,7 +18,7 @@ export interface ContentUiState {
 }
 
 const INITIAL_STATE: ContentUiState = {
-    config: { segments: [], useCloudSegments: true },
+    config: createDefaultConfig(),
     ui: { ...DEFAULT_UI },
     cloudSegments: [],
     duration: 0,

@@ -25,7 +25,8 @@ flex:0 0 auto;margin-left:10px;}
 .bmc-seg{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;
 background:rgba(255,255,255,.05);cursor:pointer;margin-top:4px;}
 .bmc-seg.is-selected{outline:1px solid #fb7299;background:rgba(251,114,153,.12);}
-.bmc-seg-new{justify-content:center;color:#fb7299;}
+.bmc-seg-list{margin-top:10px;}
+.bmc-seg-new{justify-content:center;color:#fb7299;margin-top:12px;}
 .bmc-badge{flex:0 0 auto;font-size:10px;line-height:16px;padding:0 5px;border-radius:4px;
 background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);}
 .bmc-badge.is-skip{background:rgba(251,114,153,.18);color:#fb7299;}
@@ -35,6 +36,7 @@ background:rgba(255,255,255,.12);color:rgba(255,255,255,.75);}
 .bmc-time{font-variant-numeric:tabular-nums;color:rgba(255,255,255,.75);font-size:11px;}
 .bmc-empty{color:rgba(255,255,255,.35);padding:8px;text-align:center;}
 .bmc-hint{color:rgba(255,255,255,.45);font-size:11px;line-height:1.5;margin-top:6px;}
+.bmc-divider{height:1px;margin:14px 0 0;background:rgba(255,255,255,.12);}
 .bmc-editor{display:flex;align-items:center;gap:4px;margin-top:6px;}
 .bmc-editor input{flex:1;min-width:0;box-sizing:border-box;height:26px;padding:0 6px;
 border-radius:6px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);
@@ -57,6 +59,12 @@ font-family:inherit;transition:background .15s;}
 .bmc-action:hover{background:rgba(255,255,255,.18);}
 .bmc-action.is-primary{background:#fb7299;color:#fff;}
 .bmc-action.is-primary:hover{background:#f25d8b;}
+.bmc-action.is-edit{background:#3b82f6;color:#fff;}
+.bmc-action.is-edit:hover{background:#2f6fd0;}
+.bmc-action:disabled{opacity:.45;cursor:default;}
+.bmc-row-del{margin-left:auto;flex:0 0 auto;border:0;background:transparent;
+color:rgba(255,255,255,.4);font-size:11px;cursor:pointer;padding:0 2px;font-family:inherit;}
+.bmc-row-del:hover{color:#f87171;}
 .bmc-input{box-sizing:border-box;width:100%;height:26px;padding:0 8px;border-radius:6px;
 border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;
 font-size:12px;outline:none;}

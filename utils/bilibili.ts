@@ -11,19 +11,25 @@ export const BTN_CLASS = ".bpx-player-ctrl-next";
 
 export const TARGET_ID = "viewbox_report";
 
+/** BV 号本体：BV + 10 位字母数字 */
+const BV_SOURCE = "BV[0-9A-Za-z]{10}";
+const BVID_PATTERN = new RegExp(`^${BV_SOURCE}$`);
+
+/** 校验完整的 BV 号（各上下文共用同一份规则） */
+export const isValidBvid = (value?: string): value is string =>
+    typeof value === "string" && BVID_PATTERN.test(value);
+
 /**
  * 从 B 站视频页 URL 中提取 BV 号
  */
-export const getBvidFromUrl = (url: string): string | null => {
-    const match = url.match(/\/video\/(BV[0-9A-Za-z]{10})/);
-    return match?.[1] ?? null;
-};
+export const getBvidFromUrl = (url: string): string | null =>
+    url.match(new RegExp(`/video/(${BV_SOURCE})`))?.[1] ?? null;
 
 /**
  * 从用户输入（BV 号或分享链接）中提取规范化的 BV 号
  */
 export const extractBvid = (text: string): string | null => {
-    const match = text.match(/BV[0-9A-Za-z]{10}/i);
+    const match = text.match(new RegExp(BV_SOURCE, "i"));
     return match ? `BV${match[0].slice(2)}` : null;
 };
 

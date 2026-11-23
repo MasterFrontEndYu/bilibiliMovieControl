@@ -8,10 +8,16 @@ import {
     TARGET_ID,
     BTN_CLASS,
 } from "@/utils/bilibili";
-import { loadSegments, parseCreatedSegments, pickNextSegment, saveSegments } from "@/utils/segments";
+import {
+    effectiveCloudSegments,
+    loadSegments,
+    normalizeSegments,
+    parseCreatedSegments,
+    pickNextSegment,
+    saveSegments,
+} from "@/utils/segments";
 import type {
     ApiSegment,
-    ContentConfig,
     JumpPanelSubmitPayload,
     JumpPanelTab,
     SkipSegment,
@@ -21,18 +27,24 @@ import type {
 import { StatusRow } from "@/content-ui/StatusRow";
 import { JumpPanel } from "@/content-ui/JumpPanel";
 import {
+    removeProgressMarkers,
+    syncProgressMarkers,
+} from "@/content-ui/progressMarkers";
+import {
     closePanelState,
     openPanelState,
     updateUiData,
 } from "@/content-ui/state";
 import {
     DEFAULT_UI,
-    isUiEmpty,
+    hasVisibleRow,
     normalizeUi,
     UI_STORAGE_KEY,
 } from "@/utils/uiVisibility";
-
-const DEFAULT_CONFIG: ContentConfig = { segments: [], useCloudSegments: true };
+import {
+    createDefaultConfig,
+    DEFAULT_USE_CLOUD_SEGMENTS,
+} from "@/utils/configDefaults";
 
 export default defineContentScript({
     matches: ["*://*.bilibili.com/video/*"],
@@ -40,10 +52,7 @@ export default defineContentScript({
 
     async main(ctx) {
         // ---------- 1. 配置：片段列表统一存在 storage.segments ----------
-        let config: ContentConfig = {
-            ...DEFAULT_CONFIG,
-            segments: [],
-        };
+        let config = createDefaultConfig();
         let previewRule: SkipSegment | null = null;
         /** 状态那一行的显示开关（只影响显示） */
         let uiVisibility: UiVisibility = { ...DEFAULT_UI };
@@ -92,13 +101,31 @@ export default defineContentScript({
         let optimisticSegments: SkipSegment[] = [];
         let optimisticUntil = 0;
 
+        /** 换视频 / 关闭云端时清空所有云端状态（含重试时间） */
+        const resetCloudState = () => {
+            cloudRequestSeq += 1;
+            cloudSegments = [];
+            cloudKey = "";
+            cloudRetryAt = 0;
+            optimisticSegments = [];
+            optimisticUntil = 0;
+        };
+
         const CLOUD_SKIP_CATEGORIES = new Set(["intro", "sponsor", "selfpromo"]);
 
-        const getVideo = () => getMainVideo();
-
         const currentDuration = () => {
-            const duration = getVideo()?.duration ?? 0;
+            const duration = getMainVideo()?.duration ?? 0;
             return Number.isFinite(duration) ? duration : 0;
+        };
+
+        /** 当前页是否为带选集列表的合集页（插件只在这里生效） */
+        const isCollectionPage = () => !!document.querySelector(".video-pod");
+
+        /** 当前视频的 BV 与分 P（URL 里 p 缺省为 1） */
+        const currentVideoRef = () => {
+            const page =
+                Number(new URL(location.href).searchParams.get("p")) || 1;
+            return { bvid: getBvidFromUrl(location.href), page };
         };
 
         /** 状态条需要同时感知手动/云端片段、视频时长和显示开关，统一走这里更新 */
@@ -113,7 +140,7 @@ export default defineContentScript({
 
         const loadConfig = async () => {
             const stored = await browser.storage.local.get({
-                useCloudSegments: true,
+                useCloudSegments: DEFAULT_USE_CLOUD_SEGMENTS,
                 [UI_STORAGE_KEY]: DEFAULT_UI,
             });
 
@@ -124,12 +151,7 @@ export default defineContentScript({
             uiVisibility = normalizeUi(stored[UI_STORAGE_KEY]);
 
             if (!config.useCloudSegments) {
-                cloudRequestSeq += 1;
-                cloudSegments = [];
-                cloudKey = "";
-                cloudRetryAt = 0;
-                optimisticSegments = [];
-                optimisticUntil = 0;
+                resetCloudState();
             }
 
             syncUi();
@@ -144,8 +166,8 @@ export default defineContentScript({
                 return [];
             }
 
-            const bvid = getBvidFromUrl(location.href);
-            const video = getVideo();
+            const { bvid, page } = currentVideoRef();
+            const video = getMainVideo();
             if (!bvid || !video) {
                 cloudSegments = [];
                 return [];
@@ -154,14 +176,7 @@ export default defineContentScript({
             try {
                 const result = (await browser.runtime.sendMessage({
                     type: "SB_LOOKUP",
-                    data: {
-                        bvid,
-                        page:
-                            Number(
-                                new URL(location.href).searchParams.get("p"),
-                            ) || 1,
-                        force,
-                    },
+                    data: { bvid, page, force },
                 })) as { ok?: boolean; segments?: ApiSegment[] } | undefined;
 
                 // 换 P / 换视频后，迟到的旧响应不再覆盖当前状态
@@ -243,7 +258,7 @@ export default defineContentScript({
         let manualSeekGuardUntil = 0;
 
         const seekTo = (seconds: number) => {
-            const video = getVideo();
+            const video = getMainVideo();
             if (!video) return;
 
             video.pause();
@@ -253,13 +268,22 @@ export default defineContentScript({
 
         /** 预览：跳到片段前 3 秒播放，并在到达起点时临时执行一次 */
         const previewSegment = (segment: SkipSegment) => {
-            const video = getVideo();
+            const video = getMainVideo();
             if (!video) return;
 
             manualSeekGuardUntil = 0;
             previewRule = { ...segment };
             video.currentTime = Math.max(0, segment.start - 3);
             void video.play()?.catch(() => undefined);
+        };
+
+        /** 保存片段并同步内存状态（写路径不重读 storage） */
+        const persistSegments = async (next: SkipSegment[]) => {
+            config = {
+                ...config,
+                segments: await saveSegments(next),
+            };
+            syncUi();
         };
 
         /** 新增 / 更新一个手动片段（下一P 全局只保留一个） */
@@ -271,24 +295,20 @@ export default defineContentScript({
             );
             next.push(segment);
 
-            await saveSegments(next);
-            await loadConfig();
+            await persistSegments(next);
         };
 
         const deleteSegment = async (id: string) => {
-            await saveSegments(
+            await persistSegments(
                 config.segments.filter((item) => item.id !== id),
             );
-            await loadConfig();
         };
 
         /** 提交片段：转交 background 发起 POST /api/skipSegments */
         const submitSegments = async (
             payload: JumpPanelSubmitPayload,
         ): Promise<SubmitResult> => {
-            const page = Number(
-                new URL(location.href).searchParams.get("p"),
-            ) || 1;
+            const { page } = currentVideoRef();
 
             const result = (await browser.runtime.sendMessage({
                 type: "SB_SUBMIT",
@@ -337,11 +357,17 @@ export default defineContentScript({
             panelHostEl = null;
         };
 
+        /** 关闭面板：卸载 DOM + 复位打开状态 */
+        const closePanel = () => {
+            disposePanel();
+            closePanelState();
+        };
+
         /**
          * 确保浮动窗口已挂载到当前 #playerWrap 内（容器被 SPA 替换时重建）。
          */
-        const ensurePanel = (wrap: HTMLElement): boolean => {
-            if (panelHostEl && panelHostEl.parentElement === wrap) return true;
+        const ensurePanel = (wrap: HTMLElement) => {
+            if (panelHostEl && panelHostEl.parentElement === wrap) return;
 
             disposePanel();
 
@@ -361,13 +387,11 @@ export default defineContentScript({
                         onDeleteSegment: deleteSegment,
                         onSeek: seekTo,
                         onPreview: previewSegment,
-                        getCurrentTime: () => getVideo()?.currentTime ?? 0,
+                        getCurrentTime: () => getMainVideo()?.currentTime ?? 0,
                         getDuration: () => currentDuration(),
                     }),
                 host,
             );
-
-            return true;
         };
 
         /**
@@ -375,7 +399,7 @@ export default defineContentScript({
          */
         const openPanel = (tab: JumpPanelTab): OpenPanelResult => {
             // 插件只在合集页生效，非合集页没有状态条，也不弹面板
-            if (!document.querySelector(".video-pod")) {
+            if (!isCollectionPage()) {
                 return "not-collection";
             }
 
@@ -385,8 +409,7 @@ export default defineContentScript({
                 return "no-host";
             }
 
-            if (!ensurePanel(wrap)) return "no-host";
-
+            ensurePanel(wrap);
             openPanelState(tab);
             return "ok";
         };
@@ -395,11 +418,8 @@ export default defineContentScript({
 
         /** 从状态条打开「云端片段」数据页，并带上当前 BV / 分P */
         const openCloudPage = () => {
-            const bvid = getBvidFromUrl(location.href);
+            const { bvid, page } = currentVideoRef();
             if (!bvid) return;
-
-            const page =
-                Number(new URL(location.href).searchParams.get("p")) || 1;
 
             void browser.runtime.sendMessage({
                 type: "OPEN_CLOUD_PAGE",
@@ -408,23 +428,45 @@ export default defineContentScript({
         };
 
         // ---------- 2. 工具函数：等待元素出现 ----------
-        const waitForElement = (selector: string, timeout = 10000) =>
-            new Promise<Element | null>((resolve) => {
-                const existing = document.querySelector(selector);
-                if (existing) return resolve(existing);
-                const obs = new MutationObserver(() => {
-                    const el = document.querySelector(selector);
-                    if (el) {
-                        obs.disconnect();
-                        resolve(el);
-                    }
+        /**
+         * 轮询 DOM，直到 probe 返回真值或超时。
+         * 元素探测和顶栏就绪判断共用这一套 MutationObserver + 超时兜底。
+         */
+        const waitFor = <T>(
+            probe: () => T | false | null | undefined,
+            timeout = 10000,
+            observe: MutationObserverInit = {
+                childList: true,
+                subtree: true,
+            },
+        ) =>
+            new Promise<T | null>((resolve) => {
+                const immediate = probe();
+                if (immediate) {
+                    resolve(immediate);
+                    return;
+                }
+
+                let done = false;
+                const observer = new MutationObserver(() => {
+                    const value = probe();
+                    if (value) finish(value);
                 });
-                obs.observe(document.body, { childList: true, subtree: true });
-                setTimeout(() => {
-                    obs.disconnect();
-                    resolve(null);
-                }, timeout);
+                const timer = setTimeout(() => finish(null), timeout);
+
+                function finish(value: T | null) {
+                    if (done) return;
+                    done = true;
+                    observer.disconnect();
+                    clearTimeout(timer);
+                    resolve(value);
+                }
+
+                observer.observe(document.body, observe);
             });
+
+        const waitForElement = (selector: string, timeout = 10000) =>
+            waitFor(() => document.querySelector(selector), timeout);
 
         /**
          * B 站顶栏会先从骨架 .mini-header 切换成完整的 .bili-header--mini；
@@ -432,42 +474,16 @@ export default defineContentScript({
          * 结果整个顶部导航条消失。这里等切换完成（或超时兜底）再挂插件 UI。
          */
         const waitForBiliHeaderReady = (timeout = 8000) =>
-            new Promise<void>((resolve) => {
-                const ready = () =>
+            waitFor(
+                () =>
                     !!document.querySelector(
                         ".bili-header--mini, .bili-header__menu",
-                    );
-
-                if (ready()) {
-                    resolve();
-                    return;
-                }
-
-                let done = false;
-                let observer: MutationObserver | null = null;
-                let timer: ReturnType<typeof setTimeout> | null = null;
-
-                const finish = () => {
-                    if (done) return;
-                    done = true;
-                    observer?.disconnect();
-                    if (timer) clearTimeout(timer);
-                    resolve();
-                };
-
-                observer = new MutationObserver(() => {
-                    if (ready()) finish();
-                });
-                observer.observe(document.documentElement, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                });
-                timer = setTimeout(finish, timeout);
-            });
+                    ),
+                timeout,
+                { childList: true, subtree: true, attributes: true },
+            ).then(() => undefined);
 
         // ---------- 3. UI 挂载（原生 DOM） ----------
-        let uiMounted = false;
         /** B 站顶栏切换完成前不插 DOM，避免影响页面自身渲染 */
         let biliHeaderReady = false;
 
@@ -501,31 +517,26 @@ export default defineContentScript({
             onRemove: (unmount) => unmount?.(),
         });
 
-        /** 只有「合集页 + 至少一个可见项」才挂载；整行不可见时不留空白 */
+        /** 只有「合集页 + 至少一个可见行项目」才挂载；整行不可见时不留空白 */
         const updateUi = (isCollection: boolean) => {
-            const shouldMount = isCollection && !isUiEmpty(uiVisibility);
+            const shouldMount = isCollection && hasVisibleRow(uiVisibility);
+            const mounted = ui.mounted !== undefined;
 
             // 页面容器被 SPA 替换时，wrapper 会脱离 DOM；此时重新挂载
             if (
                 shouldMount &&
                 biliHeaderReady &&
-                (!uiMounted || !ui.wrapper.isConnected)
+                (!mounted || !ui.wrapper.isConnected)
             ) {
-                if (uiMounted) {
-                    ui.remove();
-                    uiMounted = false;
-                }
+                if (mounted) ui.remove();
                 ui.mount();
-                uiMounted = true;
-            } else if (!shouldMount && uiMounted) {
+            } else if (!shouldMount && mounted) {
                 ui.remove();
-                uiMounted = false;
             }
 
             // 只有离开合集页才清理浮动窗口；「全部隐藏」时 Popup 仍可打开面板
             if (!isCollection) {
-                disposePanel();
-                closePanelState();
+                closePanel();
                 previewRule = null;
             }
         };
@@ -544,7 +555,7 @@ export default defineContentScript({
 
         // ---------- 5. 核心控制逻辑 ----------
         const runControlLogic = () => {
-            const video = getVideo();
+            const video = getMainVideo();
             if (!video || video.readyState < 2) return;
 
             // 暂停或刚手动定位时不做自动跳过 / 切集
@@ -567,14 +578,7 @@ export default defineContentScript({
 
             // 手动片段优先：与手动片段重叠的云端片段直接忽略
             const cloud = config.useCloudSegments
-                ? cloudSegments.filter(
-                      (segment) =>
-                          !config.segments.some(
-                              (item) =>
-                                  segment.start < item.end &&
-                                  segment.end > item.start,
-                          ),
-                  )
+                ? effectiveCloudSegments(config.segments, cloudSegments)
                 : [];
 
             const effective = [...config.segments, ...cloud];
@@ -604,9 +608,12 @@ export default defineContentScript({
         };
 
         // ---------- 6. 主循环 ----------
+        let lastIsCollection: boolean | null = null;
+        let tick = 0;
+
         const mainLoop = () => {
             try {
-                const video = getVideo();
+                const video = getMainVideo();
 
                 // 视频时长就绪后拉一次云端片段（换 P / 换视频会因 key 变化重拉）
                 if (
@@ -615,10 +622,7 @@ export default defineContentScript({
                     video.readyState >= 2 &&
                     video.duration > 0
                 ) {
-                    const bvid = getBvidFromUrl(location.href);
-                    const page =
-                        Number(new URL(location.href).searchParams.get("p")) ||
-                        1;
+                    const { bvid, page } = currentVideoRef();
                     const key = bvid
                         ? `${bvid}:${page}:${Math.round(video.duration)}`
                         : "";
@@ -631,9 +635,23 @@ export default defineContentScript({
                     }
                 }
 
-                const isCol = !!document.querySelector(".video-pod");
-                updateUi(isCol);
-                if (isCol) runControlLogic();
+                const isCol = isCollectionPage();
+                const collectionChanged = isCol !== lastIsCollection;
+                lastIsCollection = isCol;
+                tick += 1;
+
+                // UI 挂载状态不必每 200ms 检查：集合页变化时立即处理，
+                // 其余情况每秒探测一次（应对 SPA 替换 #viewbox_report）。
+                if (collectionChanged || (isCol && tick % 5 === 0)) {
+                    updateUi(isCol);
+                }
+
+                if (isCol) {
+                    syncProgressMarkers(currentDuration());
+                    runControlLogic();
+                } else {
+                    removeProgressMarkers();
+                }
             } catch (e) {
                 console.error("[Main Loop] 异常:", e);
             }
@@ -643,18 +661,25 @@ export default defineContentScript({
         // popup / options 写入 storage 后，浏览器通过 onChanged 通知到这里
         const storageListener = (changes: any, area: string) => {
             if (area !== "local") return;
-            if (
-                !changes.segments &&
-                !changes.useCloudSegments &&
-                !changes[UI_STORAGE_KEY]
-            ) {
-                return;
+
+            if (changes[UI_STORAGE_KEY]) {
+                uiVisibility = normalizeUi(changes[UI_STORAGE_KEY].newValue);
+                syncUi();
+                updateUi(isCollectionPage());
             }
 
-            void loadConfig().then(() => {
-                // 显示开关变化要立即生效：重新判断是否还有可见内容
-                updateUi(!!document.querySelector(".video-pod"));
-            });
+            if (changes.segments) {
+                // 片段只在本上下文写入；直接同步内存，不再重读 storage
+                config = {
+                    ...config,
+                    segments: normalizeSegments(changes.segments.newValue),
+                };
+                syncUi();
+            }
+
+            if (changes.useCloudSegments) {
+                void loadConfig().then(() => updateUi(isCollectionPage()));
+            }
         };
         browser.storage.onChanged.addListener(storageListener);
 
@@ -663,36 +688,47 @@ export default defineContentScript({
             const newUrl =
                 (event as CustomEvent).detail?.newUrl || (event as any).newUrl;
             if (!newUrl) return;
+
             lastJumpTime = 0;
             previewRule = null;
             manualSeekGuardUntil = 0;
-            cloudRequestSeq += 1;
-            cloudSegments = [];
-            cloudKey = "";
-            optimisticSegments = [];
-            optimisticUntil = 0;
+            resetCloudState();
             syncUi();
 
             // 换 P / 换视频后 playerWrap 可能被替换，窗口留给下次重新创建
-            disposePanel();
-            closePanelState();
+            closePanel();
         };
         ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
         // ---------- 8. 启动 ----------
-        await waitForElement(`#${TARGET_ID}`);
+        const target = await waitForElement(`#${TARGET_ID}`);
+        if (!target) {
+            console.warn(
+                "[BMC] 未找到 #viewbox_report，状态条可能无法挂载",
+            );
+        }
 
         /** 页面就绪前收到过 popup 的打开请求：等 #playerWrap 挂好再补开 */
         const flushPendingPanel = (retries = 10): void => {
             if (!pendingPanelTab) return;
 
-            if (openPanel(pendingPanelTab) === "ok") {
+            const result = openPanel(pendingPanelTab);
+
+            if (result === "ok") {
+                pendingPanelTab = null;
+                return;
+            }
+
+            // 非合集页重试也不会成功，直接放弃
+            if (result === "not-collection") {
                 pendingPanelTab = null;
                 return;
             }
 
             if (retries > 0) {
                 ctx.setTimeout(() => flushPendingPanel(retries - 1), 300);
+            } else {
+                pendingPanelTab = null;
             }
         };
         flushPendingPanel();
@@ -700,14 +736,13 @@ export default defineContentScript({
         ctx.setInterval(mainLoop, 200);
 
         // ---------- 9. 清理 ----------
-        // ctx.addEventListener / ctx.setInterval 由 WXT 在失效时自动清理；
+        // ctx.addEventListener / ctx.setInterval / 状态条 UI 由 WXT 在失效时自动清理；
         // browser.* 上的监听需要手动移除。
         ctx.onInvalidated(() => {
             browser.storage.onChanged.removeListener(storageListener);
             browser.runtime.onMessage.removeListener(messageListener);
-            disposePanel();
-            closePanelState();
-            updateUi(false);
+            closePanel();
+            removeProgressMarkers();
         });
     },
 });

@@ -1,9 +1,4 @@
-export function formatSeconds(total: number): string {
-    const safe = Math.max(0, Math.floor(total));
-    return `${Math.floor(safe / 3600)}:${String(
-        Math.floor((safe % 3600) / 60),
-    ).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
-}
+export { formatSeconds } from "@/utils/format";
 
 /** 支持 "90" / "01:30" / "00:01:30" */
 export function parseTimeText(text: string): number {

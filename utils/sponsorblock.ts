@@ -12,7 +12,10 @@ import type {
     VoteResult,
     VoteType,
 } from "@/types/types";
+import { isValidBvid } from "@/utils/bilibili";
 import { readCachedSegments, writeCachedSegments } from "@/utils/segmentCache";
+
+export { isValidBvid };
 
 /**
  * BilibiliSponsorBlock 接口。
@@ -48,13 +51,8 @@ const CACHE_TTL_MS = 30 * 60 * 1000;
 const FORCE_CACHE_TTL_MS = 2 * 60 * 1000;
 const NEGATIVE_CACHE_TTL_MS = 10 * 60 * 1000;
 
-const BVID_PATTERN = /^BV[0-9A-Za-z]{10}$/;
-
 /** 内存中的在途请求去重：同一视频并发只打一次接口 */
 const inFlight = new Map<string, Promise<ApiLookupResult>>();
-
-export const isValidBvid = (bvid?: string): bvid is string =>
-    typeof bvid === "string" && BVID_PATTERN.test(bvid);
 
 const cacheKey = (bvid: string, cid?: string) => `${bvid}:${cid ?? "all"}`;
 
@@ -148,7 +146,7 @@ async function requestSkipSegments(
             signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
             // Origin 由浏览器自动携带，脚本无法设置；这里只标识扩展版本
             headers: {
-                "x-ext-version": browser.runtime.getManifest().version,
+                "x-ext-version": extensionVersion(),
                 ...(force ? { "x-skip-cache": "1" } : {}),
             },
         });
@@ -509,7 +507,7 @@ export async function submitSkipSegments(
             signal: AbortSignal.timeout(SUBMIT_TIMEOUT_MS),
             headers: {
                 "content-type": "application/json",
-                "x-ext-version": browser.runtime.getManifest().version,
+                "x-ext-version": extensionVersion(),
             },
             body: JSON.stringify(payload),
         });

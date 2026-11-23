@@ -20,6 +20,8 @@ import {
 } from "lucide-solid";
 import { browser } from "wxt/browser";
 import { buildCloudPath, rememberCloudContext } from "@/utils/cloudContext";
+import { reasonText } from "@/utils/errors";
+import { formatClockTime } from "@/utils/format";
 import { getOrCreateUserID } from "@/utils/userId";
 import type {
     ApiSegmentInfo,
@@ -28,25 +30,6 @@ import type {
     VoteType,
 } from "@/types/types";
 
-const REASON_TEXT: Record<string, string> = {
-    "bad-request": "参数不完整",
-    "not-found": "未找到该片段",
-    "rate-limited": "操作过于频繁，请稍后再试",
-    rejected: "被服务端拒绝（403）",
-    timeout: "请求超时",
-    network: "网络异常",
-    "bad-json": "接口返回数据异常",
-    "test-env": "测试环境不支持该操作",
-};
-
-const formatTime = (seconds: number) => {
-    const total = Math.max(0, Math.round(Number(seconds) || 0));
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-    return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-};
-
 const formatDate = (value: number) => {
     if (!Number.isFinite(value) || value <= 0) return "未知";
 
@@ -54,9 +37,6 @@ const formatDate = (value: number) => {
     const milliseconds = value > 1e12 ? value : value * 1000;
     return new Date(milliseconds).toLocaleString();
 };
-
-const reasonText = (reason?: string) =>
-    REASON_TEXT[reason ?? ""] ?? `请求失败（${reason ?? "未知错误"}）`;
 
 const categoryText = (category: string) => {
     const labels: Record<string, string> = {
@@ -219,7 +199,7 @@ export default function SegmentPage() {
             },
             {
                 label: "提交时视频时长",
-                value: formatTime(item.videoDuration),
+                value: formatClockTime(item.videoDuration),
             },
         ];
     };
@@ -337,8 +317,8 @@ export default function SegmentPage() {
                                     {categoryText(info()!.category)}
                                 </h2>
                                 <p class="font-mono text-sm m-0 text-base-content/80">
-                                    {formatTime(info()!.startTime)} →{" "}
-                                    {formatTime(info()!.endTime)}
+                                    {formatClockTime(info()!.startTime)} →{" "}
+                                    {formatClockTime(info()!.endTime)}
                                 </p>
 
                                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 text-xs text-base-content/60">

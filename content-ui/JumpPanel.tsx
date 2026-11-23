@@ -10,10 +10,11 @@ import {
 import { browser } from "wxt/browser";
 import { getBvidFromUrl } from "@/utils/bilibili";
 import { effectiveEnd, MIN_SEGMENT_SECONDS } from "@/utils/segments";
+import { reasonText } from "@/utils/errors";
 import {
-    generateUserID,
+    getOrCreateUserID,
     MIN_USER_ID_LENGTH,
-    USER_ID_STORAGE_KEY,
+    saveUserID,
 } from "@/utils/userId";
 import { buildSubmitSegments } from "@/utils/jumpPanel";
 import { formatSeconds, parseTimeText } from "@/content-ui/time";
@@ -41,19 +42,6 @@ const KIND_LABELS: Record<SegmentKind, string> = {
     next: "下一P",
 };
 
-const REASON_TEXT: Record<string, string> = {
-    "bad-bvid": "视频 BV 号无效",
-    "bad-request": "上传参数不完整",
-    "bad-json": "接口返回数据异常",
-    rejected: "上传被服务端拒绝（403）",
-    duplicate: "这段内容已经上传过（409）",
-    "rate-limited": "上传过于频繁，请稍后再试",
-    "test-env": "测试环境不支持上传，请使用正式环境",
-    timeout: "请求超时，请稍后重试",
-    network: "网络异常，请检查网络后重试",
-    "not-found": "接口未找到",
-};
-
 const SectionHeader = (props: { title: string; extra?: string }) => (
     <div class="bmc-section-head">
         <span>{props.title}</span>
@@ -67,13 +55,15 @@ const EmptyHint = (props: { text: string }) => (
     <div class="bmc-empty">{props.text}</div>
 );
 
-/** 片段列表行（查看页只读；设置页可选中） */
+/** 片段列表行（查看页只读；设置页可选中、可删除） */
 const SegmentRow = (props: {
     segment: SkipSegment;
     selected?: boolean;
     /** 设置页的紧凑徽标：下一P / 跳过 */
     compact?: boolean;
     onClick?: () => void;
+    /** 传入时在行尾显示删除按钮 */
+    onDelete?: () => void;
 }) => {
     const endText = () =>
         props.segment.kind === "next" &&
@@ -124,6 +114,21 @@ const SegmentRow = (props: {
             <span class="bmc-time">
                 {formatSeconds(props.segment.start)} → {endText()}
             </span>
+
+            <Show when={props.onDelete}>
+                <button
+                    type="button"
+                    class="bmc-row-del"
+                    title="删除该片段"
+                    onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        props.onDelete?.();
+                    }}
+                >
+                    删除
+                </button>
+            </Show>
         </div>
     );
 };
@@ -143,8 +148,10 @@ export function JumpPanel(props: JumpPanelProps) {
 
     const [activeTab, setActiveTab] = createSignal<JumpPanelTab>(panelTab());
     const [selectedId, setSelectedId] = createSignal<string | null>(null);
-    const [editingStart, setEditingStart] = createSignal(false);
-    const [editingEnd, setEditingEnd] = createSignal(false);
+    /** 编辑器是否处于可编辑状态（点「编辑」后才为 true，点「保存」后回到 false） */
+    const [editing, setEditing] = createSignal(false);
+    /** 当前编辑器里是否有目标：已选片段 / 新建的草稿 */
+    const [hasDraft, setHasDraft] = createSignal(false);
     const [editId, setEditId] = createSignal<string | null>(null);
     const [editKind, setEditKind] = createSignal<SegmentKind>("skip");
     const [editStartText, setEditStartText] = createSignal(
@@ -165,7 +172,6 @@ export function JumpPanel(props: JumpPanelProps) {
     >("info");
     const [statusText, setStatusText] = createSignal("");
     const [submitting, setSubmitting] = createSignal(false);
-    const [apiSegments, setApiSegments] = createSignal<SkipSegment[]>([]);
     const [apiLoaded, setApiLoaded] = createSignal(false);
     const [refreshing, setRefreshing] = createSignal(false);
 
@@ -201,12 +207,24 @@ export function JumpPanel(props: JumpPanelProps) {
         return Number.isFinite(value) ? value : 0;
     };
 
-    const isEditing = () => editingStart() || editingEnd();
+    const isEditing = () => editing();
+    const hasTarget = () =>
+        editId() !== null || selectedId() !== null || hasDraft();
+
+    /**
+     * 云端片段直接读 content 推过来的 store（与状态栏同源），
+     * 这里只负责展示顺序：下一 P 排最后，其余按起点。
+     */
+    const cloudSegments = () =>
+        [...uiState.cloudSegments].sort((a, b) => {
+            if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
+            return a.start - b.start;
+        });
 
     const findSegment = (id: string | null) =>
         id
             ? (uiState.config.segments.find((item) => item.id === id) ??
-              apiSegments().find((item) => item.id === id) ??
+              uiState.cloudSegments.find((item) => item.id === id) ??
               null)
             : null;
 
@@ -237,15 +255,14 @@ export function JumpPanel(props: JumpPanelProps) {
             (segment) => now >= segment.start && now < segment.end,
         );
 
-        const target =
-            selected ?? containing ?? uiState.config.segments[0];
+        const target = selected ?? containing ?? uiState.config.segments[0];
 
         if (!target) {
             setSelectedId(null);
             setEditId(null);
+            setHasDraft(true);
             setEditKind("skip");
-            setEditingStart(true);
-            setEditingEnd(true);
+            setEditing(false);
             setEditStartText(formatSeconds(now));
 
             const end =
@@ -258,19 +275,19 @@ export function JumpPanel(props: JumpPanelProps) {
 
         setSelectedId(target.id);
         setEditId(target.id);
+        setHasDraft(false);
         setEditKind(target.kind);
         setEditStartText(formatSeconds(target.start));
         setEditEndText(endTextFor(target));
-        setEditingStart(false);
-        setEditingEnd(false);
+        setEditing(false);
     };
 
     const startNewSegment = () => {
         setSelectedId(null);
         setEditId(null);
+        setHasDraft(true);
         setEditKind("skip");
-        setEditingStart(true);
-        setEditingEnd(true);
+        setEditing(false);
 
         const start = props.getCurrentTime();
         setEditStartText(formatSeconds(start));
@@ -319,30 +336,50 @@ export function JumpPanel(props: JumpPanelProps) {
         };
     };
 
-    const saveBoundary = async (which: "start" | "end") => {
+    /** 「编辑 / 保存」：未编辑时进入编辑，编辑中则保存当前草稿 */
+    const toggleEdit = () => {
+        if (isEditing()) {
+            void saveCurrent();
+            return;
+        }
+
+        if (!hasTarget()) {
+            showStatus("请先选中或新建片段", "error");
+            return;
+        }
+
+        setEditing(true);
+    };
+
+    const saveCurrent = async () => {
         const segment = buildEditSegment();
         if (!segment) return;
 
         await props.onSaveSegment(segment);
         setSelectedId(segment.id);
         setEditId(segment.id);
+        setHasDraft(false);
         setEditStartText(formatSeconds(segment.start));
         setEditEndText(formatSeconds(segment.end));
+        setEditing(false);
+        showStatus("已保存片段", "success");
+    };
 
-        if (which === "start") {
-            setEditingStart(false);
-        } else {
-            setEditingEnd(false);
-        }
+    const importStartTime = () => {
+        if (!isEditing()) return;
+        setEditStartText(formatSeconds(props.getCurrentTime()));
+    };
 
-        showStatus(which === "start" ? "已保存开头" : "已保存结尾", "success");
+    const importEndTime = () => {
+        if (!isEditing()) return;
+        setEditEndText(formatSeconds(props.getCurrentTime()));
     };
 
     const selectSegment = (segment: SkipSegment) => {
         setSelectedId(segment.id);
-        setEditingStart(false);
-        setEditingEnd(false);
+        setEditing(false);
         setEditId(segment.id);
+        setHasDraft(false);
         setEditKind(segment.kind);
         setEditStartText(formatSeconds(segment.start));
         setEditEndText(endTextFor(segment));
@@ -351,37 +388,23 @@ export function JumpPanel(props: JumpPanelProps) {
     const onKindChange = (value: SegmentKind) => {
         setEditKind(value);
 
-        const selected = findSegment(selectedId());
-        const isDraft = editId() === null;
+        // 只有新建的草稿在切换类型时自动填入起止
+        const isDraft = editId() === null && hasDraft();
+        if (!isDraft) return;
 
-        // 未在编辑，或正在编辑一个新的草稿：切换类型时自动填入起止
-        if (!isEditing() || isDraft) {
-            setEditingStart(true);
-            setEditingEnd(true);
+        const start = props.getCurrentTime();
+        setEditStartText(formatSeconds(start));
 
-            if (selected && !isEditing()) {
-                setEditStartText(formatSeconds(selected.start));
-                setEditEndText(endTextFor(selected));
-            } else {
-                const start = props.getCurrentTime();
-                setEditStartText(formatSeconds(start));
+        const duration = videoDuration();
+        const end =
+            value === "next" && duration > 0
+                ? duration
+                : Math.min(start + 20, duration > 0 ? duration : start + 20);
 
-                const duration = videoDuration();
-                const end =
-                    value === "next" && duration > 0
-                        ? duration
-                        : Math.min(
-                              start + 20,
-                              duration > 0 ? duration : start + 20,
-                          );
-
-                setEditEndText(formatSeconds(Math.max(start + 1, end)));
-            }
-        }
+        setEditEndText(formatSeconds(Math.max(start + 1, end)));
     };
 
-    const deleteSegment = () => {
-        const id = editId() ?? selectedId();
+    const deleteSegmentById = (id: string) => {
         const target = findSegment(id);
 
         if (target?.source === "api") {
@@ -389,16 +412,13 @@ export function JumpPanel(props: JumpPanelProps) {
             return;
         }
 
-        if (!id) {
-            showStatus("请先选中一个片段", "error");
-            return;
-        }
-
         void props.onDeleteSegment(id).then(() => {
-            setSelectedId(null);
-            setEditId(null);
-            setEditingStart(false);
-            setEditingEnd(false);
+            if (selectedId() === id) setSelectedId(null);
+            if (editId() === id) {
+                setEditId(null);
+                setHasDraft(false);
+            }
+            setEditing(false);
             prepareSubmitTab();
 
             if (uiState.config.segments.length > 0) {
@@ -451,56 +471,18 @@ export function JumpPanel(props: JumpPanelProps) {
         props.onSeek(end);
     };
 
-    /** 提交成功后，把服务端返回的片段并入云端列表（带 BiliSB 标识） */
-    const mergeCreatedSegments = (created: unknown) => {
-        if (!Array.isArray(created)) return;
-
-        const additions: SkipSegment[] = [];
-
-        for (const raw of created) {
-            if (!raw || typeof raw !== "object") continue;
-
-            const record = raw as Record<string, unknown>;
-            const bounds = Array.isArray(record.segment) ? record.segment : [];
-            const start = Number(bounds[0]);
-            const end = Number(bounds[1]);
-
-            if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
-
-            additions.push({
-                id: String(record.UUID ?? `${start}-${end}`),
-                start,
-                end,
-                kind: record.category === "outro" ? "next" : "skip",
-                source: "api",
-            });
-        }
-
-        if (additions.length === 0) return;
-
-        setApiSegments((prev) => [
-            ...prev.filter(
-                (item) => !additions.some((added) => added.id === item.id),
-            ),
-            ...additions,
-        ]);
-    };
-
+    /**
+     * 触发一次云端拉取（拉到后由 content 写入 store，状态栏和面板同时更新）。
+     * apiLoaded 只用于决定打开「查看」时要不要自动拉一次。
+     */
     const loadApiSegments = async (force = false): Promise<void> => {
         if (!uiState.config.useCloudSegments) {
             setApiLoaded(false);
-            setApiSegments([]);
             return;
         }
 
         try {
-            const list = (await props.onRefreshCloud?.(force)) ?? [];
-            setApiSegments(
-                [...list].sort((a, b) => {
-                    if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
-                    return a.start - b.start;
-                }),
-            );
+            await props.onRefreshCloud?.(force);
             setApiLoaded(true);
         } catch {
             // 失败时保持 apiLoaded = false，下次切回「查看」会重试
@@ -551,9 +533,7 @@ export function JumpPanel(props: JumpPanelProps) {
         showStatus("正在上传…", "info");
 
         try {
-            await browser.storage.local.set({
-                [USER_ID_STORAGE_KEY]: userID(),
-            });
+            await saveUserID(userID());
 
             const result = await props.onSubmit({
                 bvid,
@@ -567,13 +547,10 @@ export function JumpPanel(props: JumpPanelProps) {
                     `上传成功，共 ${segments.length} 段，等待审核`,
                     "success",
                 );
-                mergeCreatedSegments(result.created);
                 props.onUploaded?.(result.created);
                 void loadApiSegments(true);
             } else {
-                const reason = result.reason ?? "";
-                const base =
-                    REASON_TEXT[reason] ?? `上传失败（${reason || "未知错误"}）`;
+                const base = reasonText(result.reason, "上传失败");
                 showStatus(
                     result.message ? `${base}：${result.message}` : base,
                     "error",
@@ -678,33 +655,20 @@ export function JumpPanel(props: JumpPanelProps) {
         }),
     );
 
-    // 关闭云端片段时清空列表
+    // 关闭云端片段时把「已加载」标记复位，重新开启后会再拉一次
     createEffect(() => {
         if (!uiState.config.useCloudSegments) {
-            setApiSegments([]);
             setApiLoaded(false);
         }
     });
 
     // ---- 私人 ID：首次使用时自动生成并持久化 ----
     onMount(() => {
-        void (async () => {
-            const stored = await browser.storage.local.get({
-                [USER_ID_STORAGE_KEY]: "",
+        void getOrCreateUserID()
+            .then(setUserID)
+            .catch(() => {
+                // 读取失败时保持空值；上传前会提示「私人 ID 至少需要 N 个字符」
             });
-            const existing = String(stored[USER_ID_STORAGE_KEY] ?? "").trim();
-
-            if (existing.length > 0) {
-                setUserID(existing);
-                return;
-            }
-
-            const next = generateUserID();
-            setUserID(next);
-            await browser.storage.local.set({
-                [USER_ID_STORAGE_KEY]: next,
-            });
-        })();
     });
 
     return (
@@ -785,37 +749,19 @@ export function JumpPanel(props: JumpPanelProps) {
                             <div class="bmc-actions">
                                 <button
                                     type="button"
-                                    class={
-                                        editingStart()
-                                            ? "bmc-action is-primary"
-                                            : "bmc-action"
-                                    }
-                                    onClick={() => {
-                                        if (editingStart()) {
-                                            void saveBoundary("start");
-                                        } else {
-                                            setEditingStart(true);
-                                        }
-                                    }}
+                                    class="bmc-action"
+                                    disabled={!editing()}
+                                    onClick={importStartTime}
                                 >
-                                    开头：{editingStart() ? "保存" : "编辑"}
+                                    导入时间到开头
                                 </button>
                                 <button
                                     type="button"
-                                    class={
-                                        editingEnd()
-                                            ? "bmc-action is-primary"
-                                            : "bmc-action"
-                                    }
-                                    onClick={() => {
-                                        if (editingEnd()) {
-                                            void saveBoundary("end");
-                                        } else {
-                                            setEditingEnd(true);
-                                        }
-                                    }}
+                                    class="bmc-action"
+                                    disabled={!editing()}
+                                    onClick={importEndTime}
                                 >
-                                    结尾：{editingEnd() ? "保存" : "编辑"}
+                                    导入时间到结尾
                                 </button>
                             </div>
 
@@ -824,13 +770,16 @@ export function JumpPanel(props: JumpPanelProps) {
                                     type="text"
                                     value={editStartText()}
                                     placeholder="00:00:00"
-                                    disabled={!editingStart()}
+                                    disabled={!editing()}
                                     onInput={(event) =>
-                                        setEditStartText(event.currentTarget.value)
+                                        setEditStartText(
+                                            event.currentTarget.value,
+                                        )
                                     }
                                 />
                                 <select
                                     value={editKind()}
+                                    disabled={!editing()}
                                     onChange={(event) =>
                                         onKindChange(
                                             event.currentTarget.value === "next"
@@ -850,9 +799,11 @@ export function JumpPanel(props: JumpPanelProps) {
                                     type="text"
                                     value={editEndText()}
                                     placeholder="00:00:00"
-                                    disabled={!editingEnd()}
+                                    disabled={!editing()}
                                     onInput={(event) =>
-                                        setEditEndText(event.currentTarget.value)
+                                        setEditEndText(
+                                            event.currentTarget.value,
+                                        )
                                     }
                                 />
                             </div>
@@ -861,13 +812,7 @@ export function JumpPanel(props: JumpPanelProps) {
                                 <button
                                     type="button"
                                     class="bmc-action"
-                                    onClick={deleteSegment}
-                                >
-                                    删除
-                                </button>
-                                <button
-                                    type="button"
-                                    class="bmc-action"
+                                    disabled={!editing()}
                                     onClick={preview}
                                 >
                                     预览
@@ -875,35 +820,60 @@ export function JumpPanel(props: JumpPanelProps) {
                                 <button
                                     type="button"
                                     class="bmc-action"
+                                    disabled={!editing()}
                                     onClick={seekToStart}
                                 >
-                                    定位开头
+                                    定位头
                                 </button>
                                 <button
                                     type="button"
                                     class="bmc-action"
+                                    disabled={!editing()}
                                     onClick={seekToEnd}
                                 >
-                                    定位结尾
+                                    定位尾
+                                </button>
+                                <button
+                                    type="button"
+                                    class="bmc-action"
+                                    classList={{
+                                        "is-edit": !editing(),
+                                        "is-primary": editing(),
+                                    }}
+                                    disabled={!editing() && !hasTarget()}
+                                    onClick={toggleEdit}
+                                >
+                                    {editing() ? "保存" : "编辑"}
                                 </button>
                             </div>
+
+                            <div class="bmc-divider" />
 
                             <Show
                                 when={uiState.config.segments.length > 0}
                                 fallback={<EmptyHint text="暂无片段" />}
                             >
-                                <For each={uiState.config.segments}>
-                                    {(segment) => (
-                                        <SegmentRow
-                                            segment={segment}
-                                            compact
-                                            selected={segment.id === selectedId()}
-                                            onClick={() =>
-                                                selectSegment(segment)
-                                            }
-                                        />
-                                    )}
-                                </For>
+                                <div class="bmc-seg-list">
+                                    <For each={uiState.config.segments}>
+                                        {(segment) => (
+                                            <SegmentRow
+                                                segment={segment}
+                                                compact
+                                                selected={
+                                                    segment.id === selectedId()
+                                                }
+                                                onClick={() =>
+                                                    selectSegment(segment)
+                                                }
+                                                onDelete={() =>
+                                                    deleteSegmentById(
+                                                        segment.id,
+                                                    )
+                                                }
+                                            />
+                                        )}
+                                    </For>
+                                </div>
                             </Show>
 
                             <div
@@ -914,6 +884,8 @@ export function JumpPanel(props: JumpPanelProps) {
                             </div>
 
                             <Show when={uiState.config.useCloudSegments}>
+                                <div class="bmc-divider" />
+
                                 <SectionHeader title="私人 ID" />
 
                                 <input
@@ -956,7 +928,9 @@ export function JumpPanel(props: JumpPanelProps) {
                     />
                     <Show
                         when={uiState.config.segments.length > 0}
-                        fallback={<EmptyHint text="暂无手动片段，去「设置」里新建" />}
+                        fallback={
+                            <EmptyHint text="暂无手动片段，去「设置」里新建" />
+                        }
                     >
                         <For each={uiState.config.segments}>
                             {(segment) => <SegmentRow segment={segment} />}
@@ -967,20 +941,23 @@ export function JumpPanel(props: JumpPanelProps) {
                         when={uiState.config.useCloudSegments}
                         fallback={
                             <>
-                                <SectionHeader title="云端片段" extra="已关闭" />
+                                <SectionHeader
+                                    title="云端片段"
+                                    extra="已关闭"
+                                />
                                 <EmptyHint text="云端片段已关闭，可在设置页开启" />
                             </>
                         }
                     >
                         <SectionHeader
                             title="云端片段"
-                            extra={`${apiSegments().length} 个`}
+                            extra={`${cloudSegments().length} 个`}
                         />
                         <Show
-                            when={apiSegments().length > 0}
+                            when={cloudSegments().length > 0}
                             fallback={<EmptyHint text="暂无云端片段" />}
                         >
-                            <For each={apiSegments()}>
+                            <For each={cloudSegments()}>
                                 {(segment) => <SegmentRow segment={segment} />}
                             </For>
                         </Show>

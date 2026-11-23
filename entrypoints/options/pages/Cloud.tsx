@@ -10,16 +10,9 @@ import { Cloud, Info, RefreshCw, Vote } from "lucide-solid";
 import { browser } from "wxt/browser";
 import { useConfig } from "@/hooks/useStorageConfig";
 import { extractBvid } from "@/utils/bilibili";
+import { formatClockTime } from "@/utils/format";
 import { buildCloudPath, rememberCloudContext } from "@/utils/cloudContext";
 import type { ApiSegment, BiliVideoPageInfo } from "@/types/types";
-
-const formatTime = (seconds: number) => {
-    const total = Math.max(0, Math.round(Number(seconds) || 0));
-    const h = Math.floor(total / 3600);
-    const m = Math.floor((total % 3600) / 60);
-    const s = total % 60;
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-};
 
 export default function CloudPage() {
     const { config, update } = useConfig(["useCloudSegments"]);
@@ -407,11 +400,11 @@ export default function CloudPage() {
                                                             {segment.actionType}
                                                         </span>
                                                         <span class="font-mono text-xs text-base-content/80">
-                                                            {formatTime(
+                                                            {formatClockTime(
                                                                 segment.start,
                                                             )}{" "}
                                                             →{" "}
-                                                            {formatTime(
+                                                            {formatClockTime(
                                                                 segment.end,
                                                             )}
                                                         </span>

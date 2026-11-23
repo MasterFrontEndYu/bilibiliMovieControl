@@ -8,16 +8,40 @@
 
 ---
 
+## 🙏 鸣谢
+
+本项目的云端片段能力来自 [BilibiliSponsorBlock](https://github.com/hanydd/BilibiliSponsorBlock) 的公开 API 与社区提交的片段数据，特此致谢：
+
+- 项目地址：<https://github.com/hanydd/BilibiliSponsorBlock>
+- API 文档：<https://github.com/hanydd/BilibiliSponsorBlock/wiki/API>
+- 服务地址：<https://bsbsb.top>
+
+引用方式与许可证说明见文末「第三方引用与许可证」。
+
 ## ✨ 功能
+
+### 播放
 
 - **片段跳过**：播放进入片段区间时，自动跳到区间终点
 - **下一 P**：播放到达片段起点时自动点击「下一 P」；状态条直接显示实际触发的起点时间（手动优先；云端多条只取 start 最大的一条）
-- **片段管理**：播放页的「查看」展示手动片段与云端片段；「设置」里编辑起止位置与类型，支持预览、定位、删除
-- **云端片段**：查询 BilibiliSponsorBlock 的片段，带 `BiliSB` 标识；可在设置页开关是否参与跳转
-- **云端数据页**：状态条「云端数据」入口会带上当前 BV，按 cid 分组查看该视频的全部公开片段；从侧边栏进入时会保留当前 / 最近一次的 BV 与分P
+
+### 片段管理
+
+- **查看**：播放页「查看」展示手动片段与云端片段
+- **设置**：编辑起止位置与类型，支持预览、定位、删除；已保存片段可点击载入，或「＋ 新建片段」以当前进度为起点
+- **私人 ID**：首次自动生成并保存在本地，也可替换
+
+### 云端（BilibiliSponsorBlock）
+
+- **云端片段**：查询公开片段，带 `BiliSB` 标识；可在设置页开关是否参与跳转
+- **云端数据页**：状态条「云端数据」入口会带上当前 BV，按 cid 分组查看该视频的全部公开片段；从侧边栏进入时会保留当前 / 最近一次的 BV 与分 P
 - **社区投票**：云端数据页的 P 片段可进入社区页，查看 votes / views / hidden / locked / reputation，并点赞 / 点踩 / 撤销；隐藏与锁定最终由服务端和权限决定
 - **上传**：把手动片段提交到 bsbsb.top
+
+### 存档与显示
+
 - **存档**：自动记录最近播放，也支持手动存档（各 20 条）
+- **显示开关**：状态条、操作按钮、云端链接、进度条标记 / 常驻色带都可单独隐藏（设置页 → 界面显示）
 
 ## 🎯 适用范围
 
@@ -38,7 +62,7 @@
 
 - **播放页**：悬浮状态条 + 可拖拽的「查看 / 设置」窗口
 - **Popup**：片段概览、最近播放、手动存档、进入设置页
-- **Options**：功能讲解 / 云端片段 / 自动存档 / 手动存档 / 关于
+- **Options**：功能讲解 / 云端片段 / 界面显示 / 自动存档 / 手动存档 / 关于
 
 ## 💾 存储
 
@@ -55,17 +79,10 @@
 | 类别 | 选型 |
 | --- | --- |
 | 扩展框架 | [WXT](https://wxt.dev)（Chrome / Edge MV3，Firefox MV2） |
-| UI | Popup / Options 使用 [SolidJS](https://www.solidjs.com)；内容脚本为原生 DOM |
+| UI | Popup / Options 使用 [SolidJS](https://www.solidjs.com) 1.x；内容脚本为原生 DOM |
 | 样式 | TailwindCSS 4 + [DaisyUI](https://daisyui.com) |
 | 接口 | [BilibiliSponsorBlock API](https://github.com/hanydd/BilibiliSponsorBlock/wiki/API) |
 | 构建 | Vite + Bun |
-
-API 环境：
-
-- 正式：`https://bsbsb.top/api/skipSegments`
-- 测试：`https://bsbsb.top/test/api/skipSegments`
-
-默认使用正式环境；需要查询测试环境时，启动前设置 `VITE_SB_API=test`。测试环境只支持查询，不支持上传。
 
 ## 📎 第三方引用与许可证
 

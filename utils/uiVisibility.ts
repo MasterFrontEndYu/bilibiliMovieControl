@@ -15,6 +15,8 @@ export const DEFAULT_UI: UiVisibility = {
     statusSkip: true,
     statusNext: true,
     statusCloud: true,
+    progressMarkers: true,
+    idleMarkers: true,
 };
 
 /**
@@ -38,3 +40,12 @@ export const normalizeUi = (raw: unknown): UiVisibility => {
 /** 这一行是否已经完全不可见（用于决定要不要挂载整行） */
 export const isUiEmpty = (ui: UiVisibility): boolean =>
     !Object.values(ui).some(Boolean);
+
+/** 顶部那一行是否有任何可见项（进度条开关不影响这一行） */
+export const hasVisibleRow = (ui: UiVisibility): boolean =>
+    ui.actionView ||
+    ui.actionSubmit ||
+    ui.cloudLink ||
+    ui.statusSkip ||
+    ui.statusNext ||
+    ui.statusCloud;

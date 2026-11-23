@@ -37,8 +37,6 @@ export interface Config {
     useCloudSegments: boolean;
 }
 
-export type ContentConfig = Config;
-
 // ============================================================
 // 历史记录
 // ============================================================
@@ -53,12 +51,6 @@ export interface HistoryConfig extends Omit<Config, "useCloudSegments"> {
 export interface HistoryListConfig {
     maxLength: number;
     isPinned: boolean;
-    items: HistoryConfig[];
-}
-
-export interface HistoryCollection {
-    id: string;
-    title: string;
     items: HistoryConfig[];
 }
 
@@ -98,6 +90,10 @@ export interface UiVisibility {
     statusNext: boolean;
     /** ☁ 云端 N 个 */
     statusCloud: boolean;
+    /** 播放器控制条上的进度条标记（紫/红色块） */
+    progressMarkers: boolean;
+    /** 控制条自动隐藏后，色块改画在底部原生细进度条上（不再悬空） */
+    idleMarkers: boolean;
 }
 
 // ============================================================

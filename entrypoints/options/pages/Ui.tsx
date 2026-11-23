@@ -46,6 +46,19 @@ const STATUS_ROWS: UiRow[] = [
     },
 ];
 
+const PROGRESS_ROWS: UiRow[] = [
+    {
+        key: "progressMarkers",
+        label: "受控进度条标记",
+        hint: "播放器受控进度条上的紫色（片段跳过）/ 红色（下一 P）色块。",
+    },
+    {
+        key: "idleMarkers",
+        label: "常驻进度条标记",
+        hint: "播放器常驻进度条上的紫色（片段跳过）/ 红色（下一 P）色块。",
+    },
+];
+
 const Section = (props: {
     title: string;
     hint: string;
@@ -106,7 +119,7 @@ export default function UiPage() {
                         界面显示
                     </h1>
                     <p class="text-base-content/70 text-base leading-relaxed">
-                        决定播放页顶部那一行显示哪些内容。只影响显示，跳过、下一
+                        决定播放页顶部那一行和进度条上显示哪些内容。只影响显示，跳过、下一
                         P、云端查询等逻辑都不受影响。
                     </p>
                 </div>
@@ -119,7 +132,7 @@ export default function UiPage() {
                         class="text-warning shrink-0 mt-0.5"
                     />
                     <p class="m-0 text-sm text-base-content/80 leading-relaxed">
-                        现在已全部隐藏：播放页不会再有插件入口，
+                        现在已全部隐藏：播放页不会再有插件入口，进度条也不会再显示片段色块，
                         <strong>但插件仍在后台工作</strong>
                         。需要改动片段时，可以从 Popup 的「片段查看 /
                         片段设置」打开浮动窗口。
@@ -139,6 +152,14 @@ export default function UiPage() {
                 title="状态条"
                 hint="左侧彩色条里的三项统计；三项全部关闭时整条状态条不显示。"
                 rows={STATUS_ROWS}
+                ui={ui}
+                onToggle={toggle}
+            />
+
+            <Section
+                title="进度条"
+                hint="播放器进度条上的片段标记：控制条显示时画在控制条上，自动隐藏后画在底部原生细进度条上。"
+                rows={PROGRESS_ROWS}
                 ui={ui}
                 onToggle={toggle}
             />

@@ -1,6 +1,10 @@
 import { For, Show, createSignal } from "solid-js";
 import type { JSX } from "solid-js";
-import { pickNextSegment } from "@/utils/segments";
+import {
+    effectiveCloudSegments,
+    isNextInsideSkip,
+    pickNextSegment,
+} from "@/utils/segments";
 import { formatSeconds } from "@/content-ui/time";
 import { uiState } from "@/content-ui/state";
 
@@ -144,20 +148,22 @@ export function StatusRow(props: StatusRowProps) {
     const nextSegments = () =>
         segments().filter((segment) => segment.kind === "next");
 
+    /** 实际参与播放的云端片段（与手动片段重叠的会被忽略） */
+    const effectiveCloud = () =>
+        uiState.config.useCloudSegments
+            ? effectiveCloudSegments(segments(), uiState.cloudSegments)
+            : [];
+
     const cloudSkip = () =>
-        uiState.cloudSegments.filter((segment) => segment.kind === "skip")
-            .length;
+        effectiveCloud().filter((segment) => segment.kind === "skip").length;
     const cloudNext = () =>
-        uiState.cloudSegments.filter((segment) => segment.kind === "next")
-            .length;
+        effectiveCloud().filter((segment) => segment.kind === "next").length;
 
     const conflict = () =>
         nextSegments().some(
             (nextSegment) =>
                 nextSegment.start > 0 &&
-                skipSegments().some(
-                    (skipSegment) => skipSegment.end >= nextSegment.start,
-                ),
+                isNextInsideSkip(nextSegment, skipSegments()),
         );
 
     const nextSegment = () =>

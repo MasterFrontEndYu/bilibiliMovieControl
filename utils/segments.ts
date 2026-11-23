@@ -16,6 +16,12 @@ const toSeconds = (value: unknown): number => {
     );
 };
 
+/** 统一排序：下一 P 永远排在最后，其余按起点 */
+const compareSegments = (a: SkipSegment, b: SkipSegment): number => {
+    if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
+    return a.start - b.start;
+};
+
 /**
  * 校验并规范化片段列表：
  * - skip 必须有 ≥1 秒的正向长度
@@ -49,11 +55,7 @@ export function normalizeSegments(raw: unknown): SkipSegment[] {
         });
     }
 
-    return segments.sort((a, b) => {
-        // 下一P 永远排在最后
-        if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
-        return a.start - b.start;
-    });
+    return segments.sort(compareSegments);
 }
 
 /** 把旧版 opRanges + jumpConfig 迁移成统一片段列表 */
@@ -71,7 +73,8 @@ export function migrateLegacySegments(
             const start = toSeconds(record.start);
             const end = toSeconds(record.end);
 
-            if (!Number.isFinite(start) || !Number.isFinite(end)) continue;
+            if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0)
+                continue;
             if (end - start < MIN_SEGMENT_SECONDS) continue;
 
             segments.push({
@@ -95,11 +98,7 @@ export function migrateLegacySegments(
         });
     }
 
-    return segments.sort((a, b) => {
-        // 下一P 永远排在最后
-        if (a.kind !== b.kind) return a.kind === "next" ? 1 : -1;
-        return a.start - b.start;
-    });
+    return segments.sort(compareSegments);
 }
 
 /** 解析上传成功后服务端返回的片段列表 */
@@ -137,6 +136,36 @@ export function parseCreatedSegments(created: unknown): SkipSegment[] {
 }
 
 /**
+ * 手动片段优先：与任意手动片段重叠的云端片段不参与展示与播放。
+ * 播放判断、状态条统计、进度条标记统一走这里，避免各写一份后慢慢分叉。
+ */
+export function effectiveCloudSegments(
+    manualSegments: SkipSegment[],
+    cloudSegments: SkipSegment[],
+): SkipSegment[] {
+    return cloudSegments.filter(
+        (segment) =>
+            !manualSegments.some(
+                (item) =>
+                    segment.start < item.end && segment.end > item.start,
+            ),
+    );
+}
+
+/** 下一 P 起点是否落在某个跳过片段里（会「跳过 + 切集」连续跳转） */
+export function isNextInsideSkip(
+    next: SkipSegment,
+    skipSegments: SkipSegment[],
+): boolean {
+    return skipSegments.some(
+        (skip) =>
+            skip.kind === "skip" &&
+            skip.start <= next.start &&
+            skip.end > next.start,
+    );
+}
+
+/**
  * 取实际生效的下一 P：
  * - 手动 next 优先；手动异常地存在多条时也只取 start 最大的一条；
  * - 没有手动 next 时，云端 next 先过滤与手动片段重叠的，再只取 start 最大的一条；
@@ -161,12 +190,9 @@ export function pickNextSegment(
     if (manualNext.length > 0) return manualNext[0]!;
 
     // 云端 next 与播放逻辑保持一致：与任意手动片段重叠时忽略
-    const cloudEffective = cloudSegments.filter(
-        (segment) =>
-            !manualSegments.some(
-                (item) =>
-                    segment.start < item.end && segment.end > item.start,
-            ),
+    const cloudEffective = effectiveCloudSegments(
+        manualSegments,
+        cloudSegments,
     );
 
     const cloudNext = cloudEffective
@@ -218,8 +244,11 @@ export async function loadSegments(): Promise<SkipSegment[]> {
     return migrated;
 }
 
-export async function saveSegments(segments: SkipSegment[]): Promise<void> {
-    await browser.storage.local.set({
-        [STORAGE_KEY]: normalizeSegments(segments),
-    });
+/** 保存片段列表，返回规范化后的结果（调用方可直接用来更新内存状态） */
+export async function saveSegments(
+    segments: SkipSegment[],
+): Promise<SkipSegment[]> {
+    const normalized = normalizeSegments(segments);
+    await browser.storage.local.set({ [STORAGE_KEY]: normalized });
+    return normalized;
 }

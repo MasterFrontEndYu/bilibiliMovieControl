@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { cleanBiliUrl } from "@/utils/bilibili";
+import { cleanBiliUrl, isValidBvid } from "@/utils/bilibili";
 import { allowArchive, archiveLatest, archiveManual } from "@/utils/history";
 import { invalidateCachedSegments } from "@/utils/segmentCache";
 import {
@@ -97,10 +97,7 @@ export default defineBackground(() => {
 
             case "BILI_PAGES": {
                 const bvid = message.data?.bvid;
-                if (
-                    typeof bvid !== "string" ||
-                    !/^BV[0-9A-Za-z]{10}$/.test(bvid)
-                ) {
+                if (!isValidBvid(bvid)) {
                     sendResponse({ ok: false, pages: [] });
                     return true;
                 }
@@ -116,10 +113,7 @@ export default defineBackground(() => {
                 const bvid = message.data?.bvid;
                 const page = Number(message.data?.page) || 1;
 
-                if (
-                    typeof bvid !== "string" ||
-                    !/^BV[0-9A-Za-z]{10}$/.test(bvid)
-                ) {
+                if (!isValidBvid(bvid)) {
                     sendResponse({ ok: false });
                     return true;
                 }

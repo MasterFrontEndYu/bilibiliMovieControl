@@ -103,12 +103,12 @@ export default function Index() {
 
     return (
         <>
-            <div class="flex items-center justify-between">
-                <h1 class="text-base align-center font-bold">
-                    {getSoftName()}
-                </h1>
+            <h1 class="text-base font-bold">{getSoftName()}</h1>
+
+            <div class="divider divider-warning">👇详情页👇</div>
+            <div class="flex flex-col gap-1">
                 <button
-                    class=" btn btn-outline btn-primary btn-xs"
+                    class="btn btn-dash btn-warning btn-sm w-full"
                     onClick={openOptions}
                 >
                     <Settings size={12} />
@@ -116,32 +116,34 @@ export default function Index() {
                 </button>
             </div>
 
-            <p class="text-[11px] text-base-content/60 m-0 -mb-1">
-                在播放页打开片段面板（需在 B 站视频页）
-            </p>
-
-            <div class="flex gap-2">
-                <button
-                    class="btn btn-primary btn-sm flex-1"
-                    onClick={() => void openPanel("view")}
+            <div class="divider divider-success">👇片段👇</div>
+            <div class="flex flex-col gap-1 mb-2">
+                <div class="flex gap-2">
+                    <button
+                        class="btn btn-success btn-sm flex-1"
+                        onClick={() => void openPanel("view")}
+                    >
+                        <Eye size={12} />
+                        片段查看
+                    </button>
+                    <button
+                        class="btn btn-outline btn-success btn-sm flex-1"
+                        onClick={() => void openPanel("submit")}
+                    >
+                        <SlidersHorizontal size={12} />
+                        片段设置
+                    </button>
+                </div>
+                <p
+                    class={
+                        panelHint()
+                            ? "text-center line-clamp-1 text-error"
+                            : "line-clamp-1"
+                    }
                 >
-                    <Eye size={12} />
-                    片段查看
-                </button>
-                <button
-                    class="btn btn-outline btn-primary btn-sm flex-1"
-                    onClick={() => void openPanel("submit")}
-                >
-                    <SlidersHorizontal size={12} />
-                    片段设置
-                </button>
-            </div>
-
-            <Show when={panelHint()}>
-                <p class="text-[11px] text-error m-0 -mt-1">
-                    {panelHint()}
+                    {panelHint() || "\u00A0"}
                 </p>
-            </Show>
+            </div>
 
             <HistoryList
                 items={latestHistory()}
@@ -153,7 +155,10 @@ export default function Index() {
                 maxLength={PINNED_HISTORY_LENGTH}
                 isPinned={true}
             />
-            <button class="btn btn-primary btn-sm w-full" onClick={handleArchive}>
+            <button
+                class="btn btn-primary btn-sm w-full"
+                onClick={handleArchive}
+            >
                 <SaveCheck size={12} />
                 手动存档
             </button>

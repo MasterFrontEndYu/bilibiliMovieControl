@@ -21,6 +21,11 @@ export async function getOrCreateUserID(): Promise<string> {
     if (existing.length > 0) return existing;
 
     const id = generateUserID();
-    await browser.storage.local.set({ [USER_ID_STORAGE_KEY]: id });
+    await saveUserID(id);
     return id;
+}
+
+/** 保存用户自行填写的私人 ID */
+export async function saveUserID(id: string): Promise<void> {
+    await browser.storage.local.set({ [USER_ID_STORAGE_KEY]: id });
 }
