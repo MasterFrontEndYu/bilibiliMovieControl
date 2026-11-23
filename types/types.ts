@@ -82,9 +82,33 @@ export interface HistorySnapshot {
 
 export type VideoUIConfig = Config;
 
+// ============================================================
+// 播放页 UI 显示开关
+// ============================================================
+
+/**
+ * 播放页顶部「状态那一行」的显示开关。
+ * 只影响显示，不影响片段、云端查询和跳转逻辑。
+ */
+export interface UiVisibility {
+    /** 片段查看按钮 */
+    actionView: boolean;
+    /** 片段设置按钮 */
+    actionSubmit: boolean;
+    /** 「查看云端数据→」链接 */
+    cloudLink: boolean;
+    /** ⏭ 片段跳过 N 段 */
+    statusSkip: boolean;
+    /** 🔚 下一 P 时间 */
+    statusNext: boolean;
+    /** ☁ 云端 N 个 */
+    statusCloud: boolean;
+}
+
 export interface VideoUIHandle {
     update: (
         config: VideoUIConfig,
+        ui: UiVisibility,
         cloudSegments?: SkipSegment[],
         duration?: number,
     ) => void;
@@ -139,6 +163,7 @@ export interface ActionButtonHandlers {
 export type ActionButtonVariant = "primary" | "secondary";
 
 export interface ActionButtonsHandle {
+    update: (ui: UiVisibility) => void;
     destroy: () => void;
 }
 

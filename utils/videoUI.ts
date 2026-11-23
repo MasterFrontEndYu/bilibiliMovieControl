@@ -3,10 +3,12 @@ import type {
     ActionButtonVariant,
     ActionButtonsHandle,
     SkipSegment,
+    UiVisibility,
     VideoUIConfig,
     VideoUIHandle,
 } from "@/types/types";
 import { pickNextSegment } from "@/utils/segments";
+import { DEFAULT_UI } from "@/utils/uiVisibility";
 
 const ACTION_BUTTON_STYLE =
     "box-sizing:border-box;height:18px;padding:0 8px;border-radius:5px;" +
@@ -59,10 +61,12 @@ function createButton(
 /**
  * 页面内的操作按钮组（查看列表 / 提交片段）。
  * 与左侧的状态条分置两端，由调用方决定挂到哪个容器。
+ * update() 只切换显示，不销毁 DOM，避免闪烁。
  */
 export function createActionButtons(
     host: HTMLElement,
     handlers: ActionButtonHandlers,
+    initialUi: UiVisibility = DEFAULT_UI,
 ): ActionButtonsHandle {
     const viewButton = createButton("片段查看", "primary", handlers.onView);
     const submitButton = createButton(
@@ -73,7 +77,14 @@ export function createActionButtons(
 
     host.append(viewButton, submitButton);
 
+    const update = (ui: UiVisibility) => {
+        viewButton.hidden = !ui.actionView;
+        submitButton.hidden = !ui.actionSubmit;
+    };
+    update(initialUi);
+
     return {
+        update,
         destroy: () => {
             viewButton.remove();
             submitButton.remove();
@@ -97,7 +108,7 @@ const formatTime = (seconds: number): string => {
 
 /**
  * 页面内悬浮状态条（原生 DOM 实现，不依赖任何 UI 框架）。
- * 挂载到 WXT 注入的容器里，由调用方在配置变化时调用 update()。
+ * 挂载到 WXT 注入的容器里，由调用方在配置 / 显示开关变化时调用 update()。
  */
 export function createVideoUI(
     container: HTMLElement,
@@ -112,21 +123,21 @@ export function createVideoUI(
     const skip = document.createElement("span");
     skip.title = "片段跳过数量";
 
-    const divider = document.createElement("span");
-    divider.style.cssText =
-        "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
-
     const next = document.createElement("span");
     next.title = "下一 P 片段起点时间";
-
-    const divider2 = document.createElement("span");
-    divider2.style.cssText =
-        "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
 
     const cloud = document.createElement("span");
     cloud.title = "云端片段数量";
 
-    badge.append(skip, divider, next, divider2, cloud);
+    badge.append(skip, next, cloud);
+
+    /** 分隔线按当前可见项动态生成，避免出现「孤立竖线」 */
+    const makeDivider = (): HTMLElement => {
+        const divider = document.createElement("span");
+        divider.style.cssText =
+            "display:inline-block;width:2px;height:16px;background:rgba(255,255,255,.5);";
+        return divider;
+    };
 
     const warning = document.createElement("span");
     warning.textContent = "⚠ 下一P时间早于片段跳过结束，可能导致连续跳转。";
@@ -136,8 +147,9 @@ export function createVideoUI(
     root.append(badge, warning);
 
     // 「云端数据」独立于彩色状态条，避免和统计信息混在一起
+    let cloudLink: HTMLAnchorElement | null = null;
     if (onOpenCloud) {
-        const cloudLink = document.createElement("a");
+        cloudLink = document.createElement("a");
         cloudLink.href = "#";
         cloudLink.textContent = "查看云端数据→";
         cloudLink.style.cssText =
@@ -146,10 +158,10 @@ export function createVideoUI(
             "border-radius:6px;padding:2px 8px;background:rgba(0,161,214,.08);" +
             "cursor:pointer;font-family:sans-serif;margin-left:2px;";
         cloudLink.addEventListener("mouseenter", () => {
-            cloudLink.style.background = "rgba(0,161,214,.16)";
+            if (cloudLink) cloudLink.style.background = "rgba(0,161,214,.16)";
         });
         cloudLink.addEventListener("mouseleave", () => {
-            cloudLink.style.background = "rgba(0,161,214,.08)";
+            if (cloudLink) cloudLink.style.background = "rgba(0,161,214,.08)";
         });
         cloudLink.addEventListener("click", (event) => {
             event.preventDefault();
@@ -163,6 +175,7 @@ export function createVideoUI(
 
     const update = (
         cfg: VideoUIConfig,
+        ui: UiVisibility,
         cloudSegments: SkipSegment[] = [],
         duration = 0,
     ) => {
@@ -203,11 +216,28 @@ export function createVideoUI(
               }`
             : "云端片段已关闭，可在设置页开启";
 
+        // 按开关重排状态条：可见项之间才插分隔线
+        const items: HTMLElement[] = [];
+        if (ui.statusSkip) items.push(skip);
+        if (ui.statusNext) items.push(next);
+        if (ui.statusCloud) items.push(cloud);
+
+        badge.replaceChildren(
+            ...items.flatMap((item, index) =>
+                index === 0 ? [item] : [makeDivider(), item],
+            ),
+        );
+        // badge 的 display 写在行内样式里，hidden 属性会被它覆盖，直接用 style
+        badge.style.display = items.length === 0 ? "none" : "inline-flex";
+
         badge.style.background = conflict ? "#f59e0b" : "#fb7299";
         badge.style.boxShadow = conflict
             ? "0 2px 6px rgba(245,158,11,.4)"
             : "0 2px 6px rgba(251,114,153,.3)";
-        warning.style.display = conflict ? "inline" : "none";
+        warning.style.display =
+            conflict && items.length > 0 ? "inline" : "none";
+
+        if (cloudLink) cloudLink.hidden = !ui.cloudLink;
     };
 
     return {

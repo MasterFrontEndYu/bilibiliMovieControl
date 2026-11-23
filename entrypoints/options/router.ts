@@ -6,6 +6,7 @@ import {
     BadgeAlert,
     Cloud,
     HouseHeart,
+    MonitorCog,
     RobotVacuum,
     ScanEye,
     Vote,
@@ -30,6 +31,11 @@ const routes = defineRoutes([
         path: "/cloud",
         component: lazy(() => import("./pages/Cloud.tsx")),
         info: { title: "云端片段", icon: Cloud, index: 2 },
+    },
+    {
+        path: "/ui",
+        component: lazy(() => import("./pages/Ui.tsx")),
+        info: { title: "界面显示", icon: MonitorCog, index: 3 },
     },
     {
         path: "/segment",

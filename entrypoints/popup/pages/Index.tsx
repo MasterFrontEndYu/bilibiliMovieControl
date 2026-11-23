@@ -1,26 +1,58 @@
 // entrypoints/popup/App.tsx
-import { createSignal, onSettled } from "solid-js";
+import { Show, createSignal, onSettled } from "solid-js";
 import { HistoryList } from "@/components/HistoryList";
 import { browser } from "wxt/browser";
 import {
+    getActiveTab,
+    getBvidFromUrl,
     getSoftName,
     LATEST_HISTORY_LENGTH,
     PINNED_HISTORY_LENGTH,
 } from "@/utils/bilibili";
-import type { HistoryConfig } from "@/types/types";
+import type { HistoryConfig, JumpPanelTab } from "@/types/types";
 import { useConfig, initGlobalConfig } from "@/hooks/useStorageConfig";
-import { SaveCheck, Settings } from "@lucide/solid";
+import { Eye, SaveCheck, Settings, SlidersHorizontal } from "@lucide/solid";
 
 export default function Index() {
     const { config } = useConfig(["segments"]);
 
     const [latestHistory, setLatestHistory] = createSignal<HistoryConfig[]>([]);
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
+    const [panelHint, setPanelHint] = createSignal("");
 
-    const skipCount = () =>
-        config.segments.filter((segment) => segment.kind === "skip").length;
-    const nextCount = () =>
-        config.segments.filter((segment) => segment.kind === "next").length;
+    /**
+     * 在当前播放页打开内容脚本的浮动窗口：
+     * view = 片段查看，submit = 片段设置
+     */
+    const openPanel = async (tab: JumpPanelTab) => {
+        setPanelHint("");
+
+        const activeTab = await getActiveTab();
+        if (!activeTab?.id || !getBvidFromUrl(activeTab.url ?? "")) {
+            setPanelHint("请在 B 站视频播放页使用");
+            return;
+        }
+
+        try {
+            const result = (await browser.tabs.sendMessage(activeTab.id, {
+                type: "OPEN_PANEL",
+                data: { tab },
+            })) as { ok?: boolean; reason?: string } | undefined;
+
+            if (!result?.ok) {
+                setPanelHint(
+                    result?.reason === "not-collection"
+                        ? "当前页面不是合集，插件暂不生效"
+                        : "播放器还没加载好，请稍后重试",
+                );
+                return;
+            }
+
+            window.close();
+        } catch {
+            setPanelHint("播放页脚本未加载，请刷新页面后重试");
+        }
+    };
 
     /**
      * 存档逻辑：将当前片段配置存入历史记录
@@ -80,40 +112,51 @@ export default function Index() {
                     onClick={openOptions}
                 >
                     <Settings size={12} />
-                    查看
+                    详情查看
                 </button>
             </div>
 
-            <div class="divider m-0">片段概览</div>
+            <p class="text-[11px] text-base-content/60 m-0 -mb-1">
+                在播放页打开片段面板（需在 B 站视频页）
+            </p>
 
-            <div class="bg-base-200/60 rounded-xl p-3 text-xs text-base-content/70 flex flex-col gap-1">
-                <div class="flex justify-between">
-                    <span>片段跳过</span>
-                    <span class="font-mono">{skipCount()} 个</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>下一 P</span>
-                    <span class="font-mono">{nextCount()} 个</span>
-                </div>
-                <div class="text-base-content/45 mt-1">
-                    在播放页点「设置」可新增、编辑、删除片段
-                </div>
+            <div class="flex gap-2">
+                <button
+                    class="btn btn-primary btn-sm flex-1"
+                    onClick={() => void openPanel("view")}
+                >
+                    <Eye size={12} />
+                    片段查看
+                </button>
+                <button
+                    class="btn btn-outline btn-primary btn-sm flex-1"
+                    onClick={() => void openPanel("submit")}
+                >
+                    <SlidersHorizontal size={12} />
+                    片段设置
+                </button>
             </div>
+
+            <Show when={panelHint()}>
+                <p class="text-[11px] text-error m-0 -mt-1">
+                    {panelHint()}
+                </p>
+            </Show>
 
             <HistoryList
                 items={latestHistory()}
                 maxLength={LATEST_HISTORY_LENGTH}
                 isPinned={false}
             />
-            <button class="btn btn-primary btn-sm w-full" onClick={handleArchive}>
-                <SaveCheck size={12} />
-                手动存档
-            </button>
             <HistoryList
                 items={pinnedHistory()}
                 maxLength={PINNED_HISTORY_LENGTH}
                 isPinned={true}
             />
+            <button class="btn btn-primary btn-sm w-full" onClick={handleArchive}>
+                <SaveCheck size={12} />
+                手动存档
+            </button>
         </>
     );
 }

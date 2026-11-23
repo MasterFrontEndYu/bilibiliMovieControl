@@ -20,6 +20,14 @@ export const getBvidFromUrl = (url: string): string | null => {
 };
 
 /**
+ * 从用户输入（BV 号或分享链接）中提取规范化的 BV 号
+ */
+export const extractBvid = (text: string): string | null => {
+    const match = text.match(/BV[0-9A-Za-z]{10}/i);
+    return match ? `BV${match[0].slice(2)}` : null;
+};
+
+/**
  * 获取当前页面的活动标签页信息
  */
 export const getActiveTab = async () => {

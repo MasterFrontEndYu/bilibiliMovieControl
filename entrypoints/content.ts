@@ -9,6 +9,7 @@ import {
 } from "@/utils/bilibili";
 import { loadSegments, parseCreatedSegments, pickNextSegment, saveSegments } from "@/utils/segments";
 import type {
+    ActionButtonsHandle,
     ApiSegment,
     ContentConfig,
     JumpPanelHandle,
@@ -16,10 +17,17 @@ import type {
     JumpPanelTab,
     SkipSegment,
     SubmitResult,
+    UiVisibility,
     VideoUIHandle,
 } from "@/types/types";
 import { createActionButtons, createVideoUI } from "@/utils/videoUI";
 import { createJumpPanel } from "@/utils/jumpPanel";
+import {
+    DEFAULT_UI,
+    isUiEmpty,
+    normalizeUi,
+    UI_STORAGE_KEY,
+} from "@/utils/uiVisibility";
 
 const DEFAULT_CONFIG: ContentConfig = { segments: [], useCloudSegments: true };
 
@@ -34,9 +42,42 @@ export default defineContentScript({
             segments: [],
         };
         let uiHandle: VideoUIHandle | null = null;
+        let actionsHandle: ActionButtonsHandle | null = null;
         let panel: JumpPanelHandle | null = null;
         let panelHost: HTMLElement | null = null;
         let previewRule: SkipSegment | null = null;
+        /** 状态那一行的显示开关（只影响显示） */
+        let uiVisibility: UiVisibility = { ...DEFAULT_UI };
+
+        // ---------- popup：请求打开浮动窗口（片段查看 / 片段设置） ----------
+        /** ok = 已打开；no-host = 播放器容器还没就绪；not-collection = 当前页不是合集 */
+        type OpenPanelResult = "ok" | "no-host" | "not-collection";
+
+        /** openPanel 还没定义时收到的请求先挂起，定义完成后补开 */
+        let openPanelImpl: ((tab: JumpPanelTab) => OpenPanelResult) | null = null;
+        let pendingPanelTab: JumpPanelTab | null = null;
+
+        const messageListener = (message: any, sender: any, sendResponse: any) => {
+            // 只接受本扩展自己的上下文
+            if (sender?.id !== browser.runtime.id) return;
+            if (!message || message.type !== "OPEN_PANEL") return;
+
+            const tab: JumpPanelTab =
+                message.data?.tab === "submit" ? "submit" : "view";
+
+            if (!openPanelImpl) {
+                pendingPanelTab = tab;
+                sendResponse({ ok: true });
+                return;
+            }
+
+            const result = openPanelImpl(tab);
+            sendResponse({
+                ok: result === "ok",
+                reason: result === "ok" ? undefined : result,
+            });
+        };
+        browser.runtime.onMessage.addListener(messageListener);
 
         /** 云端片段映射成统一片段（仅用于播放判断） */
         let cloudSegments: SkipSegment[] = [];
@@ -57,20 +98,28 @@ export default defineContentScript({
             return Number.isFinite(duration) ? duration : 0;
         };
 
-        /** 状态条需要同时感知手动/云端片段和视频时长，统一走这里更新 */
+        /** 状态条需要同时感知手动/云端片段、视频时长和显示开关，统一走这里更新 */
         const syncUi = () => {
-            uiHandle?.update(config, cloudSegments, currentDuration());
+            uiHandle?.update(
+                config,
+                uiVisibility,
+                cloudSegments,
+                currentDuration(),
+            );
+            actionsHandle?.update(uiVisibility);
         };
 
         const loadConfig = async () => {
             const stored = await browser.storage.local.get({
                 useCloudSegments: true,
+                [UI_STORAGE_KEY]: DEFAULT_UI,
             });
 
             config = {
                 segments: await loadSegments(),
                 useCloudSegments: stored.useCloudSegments !== false,
             };
+            uiVisibility = normalizeUi(stored[UI_STORAGE_KEY]);
 
             if (!config.useCloudSegments) {
                 cloudRequestSeq += 1;
@@ -282,11 +331,16 @@ export default defineContentScript({
         /**
          * 打开浮动窗口（挂到 #playerWrap 内；容器被替换时自动重建）
          */
-        const openPanel = (tab: JumpPanelTab) => {
+        const openPanel = (tab: JumpPanelTab): OpenPanelResult => {
+            // 插件只在合集页生效，非合集页没有状态条，也不弹面板
+            if (!document.querySelector(".video-pod")) {
+                return "not-collection";
+            }
+
             const host = document.getElementById("playerWrap");
             if (!host) {
                 console.warn("[BMC] 未找到 #playerWrap，浮动窗口无法打开");
-                return;
+                return "no-host";
             }
 
             if (!panel || panelHost !== host) {
@@ -309,7 +363,10 @@ export default defineContentScript({
             }
 
             panel.open(tab);
+            return "ok";
         };
+
+        openPanelImpl = openPanel;
 
         /** 从状态条打开「云端片段」数据页，并带上当前 BV / 分P */
         const openCloudPage = () => {
@@ -420,13 +477,18 @@ export default defineContentScript({
                 uiHandle = createVideoUI(left, openCloudPage);
                 syncUi();
 
-                const actions = createActionButtons(right, {
-                    onView: () => openPanel("view"),
-                    onSubmit: () => openPanel("submit"),
-                });
+                actionsHandle = createActionButtons(
+                    right,
+                    {
+                        onView: () => openPanel("view"),
+                        onSubmit: () => openPanel("submit"),
+                    },
+                    uiVisibility,
+                );
 
                 return () => {
-                    actions.destroy();
+                    actionsHandle?.destroy();
+                    actionsHandle = null;
                     uiHandle?.destroy();
                     uiHandle = null;
                 };
@@ -434,7 +496,10 @@ export default defineContentScript({
             onRemove: (unmount) => unmount?.(),
         });
 
-        const updateUi = (shouldMount: boolean) => {
+        /** 只有「合集页 + 至少一个可见项」才挂载；整行不可见时不留空白 */
+        const updateUi = (isCollection: boolean) => {
+            const shouldMount = isCollection && !isUiEmpty(uiVisibility);
+
             // 页面容器被 SPA 替换时，wrapper 会脱离 DOM；此时重新挂载
             if (
                 shouldMount &&
@@ -450,7 +515,10 @@ export default defineContentScript({
             } else if (!shouldMount && uiMounted) {
                 ui.remove();
                 uiMounted = false;
+            }
 
+            // 只有离开合集页才清理浮动窗口；「全部隐藏」时 Popup 仍可打开面板
+            if (!isCollection) {
                 panel?.destroy();
                 panel = null;
                 panelHost = null;
@@ -571,8 +639,18 @@ export default defineContentScript({
         // popup / options 写入 storage 后，浏览器通过 onChanged 通知到这里
         const storageListener = (changes: any, area: string) => {
             if (area !== "local") return;
-            if (!changes.segments && !changes.useCloudSegments) return;
-            void loadConfig();
+            if (
+                !changes.segments &&
+                !changes.useCloudSegments &&
+                !changes[UI_STORAGE_KEY]
+            ) {
+                return;
+            }
+
+            void loadConfig().then(() => {
+                // 显示开关变化要立即生效：重新判断是否还有可见内容
+                updateUi(!!document.querySelector(".video-pod"));
+            });
         };
         browser.storage.onChanged.addListener(storageListener);
 
@@ -601,6 +679,21 @@ export default defineContentScript({
         // ---------- 8. 启动 ----------
         await waitForElement(`#${TARGET_ID}`);
 
+        /** 页面就绪前收到过 popup 的打开请求：等 #playerWrap 挂好再补开 */
+        const flushPendingPanel = (retries = 10): void => {
+            if (!pendingPanelTab) return;
+
+            if (openPanel(pendingPanelTab) === "ok") {
+                pendingPanelTab = null;
+                return;
+            }
+
+            if (retries > 0) {
+                ctx.setTimeout(() => flushPendingPanel(retries - 1), 300);
+            }
+        };
+        flushPendingPanel();
+
         ctx.setInterval(mainLoop, 200);
 
         // ---------- 9. 清理 ----------
@@ -608,6 +701,7 @@ export default defineContentScript({
         // browser.* 上的监听需要手动移除。
         ctx.onInvalidated(() => {
             browser.storage.onChanged.removeListener(storageListener);
+            browser.runtime.onMessage.removeListener(messageListener);
             panel?.destroy();
             panel = null;
             panelHost = null;

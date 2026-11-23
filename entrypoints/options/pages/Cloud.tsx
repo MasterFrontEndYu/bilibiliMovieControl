@@ -9,7 +9,8 @@ import { useNavigate, useSearchParams } from "@solidjs/router";
 import { Cloud, Info, RefreshCw, Vote } from "@lucide/solid";
 import { browser } from "wxt/browser";
 import { useConfig } from "@/hooks/useStorageConfig";
-import { rememberCloudContext } from "@/utils/cloudContext";
+import { extractBvid } from "@/utils/bilibili";
+import { buildCloudPath, rememberCloudContext } from "@/utils/cloudContext";
 import type { ApiSegment, BiliVideoPageInfo } from "@/types/types";
 
 const formatTime = (seconds: number) => {
@@ -31,6 +32,8 @@ export default function CloudPage() {
 
     const initialBvid = param("bvid");
     const [bvid, setBvid] = createSignal(initialBvid);
+    const [bvidDraft, setBvidDraft] = createSignal(initialBvid);
+    const [bvidError, setBvidError] = createSignal("");
     const [currentPage, setCurrentPage] = createSignal(
         Number(param("page")) || 0,
     );
@@ -55,6 +58,31 @@ export default function CloudPage() {
 
     const toggle = () => {
         void update({ useCloudSegments: !enabled() });
+    };
+
+    /**
+     * 手动输入 BV 号（也接受直接粘贴视频链接）：
+     * 换视频时改写 URL，让侧边栏 / 刷新都能保留；
+     * 输入的是同一个 BV 时直接强制刷新。
+     */
+    const submitBvid = () => {
+        const next = extractBvid(bvidDraft());
+
+        if (!next) {
+            setBvidError(
+                "请输入 BV 号（BV + 10 位字母和数字），也可以直接粘贴视频链接",
+            );
+            return;
+        }
+
+        setBvidError("");
+
+        if (next === bvid()) {
+            void query(true);
+            return;
+        }
+
+        navigate(buildCloudPath(next, 1));
     };
 
     const loadPages = async () => {
@@ -128,6 +156,8 @@ export default function CloudPage() {
 
         setBvid(next);
         setCurrentPage(nextPage);
+        setBvidDraft(next);
+        setBvidError("");
 
         if (next) {
             rememberCloudContext(next, nextPage);
@@ -183,6 +213,41 @@ export default function CloudPage() {
             </header>
 
             <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
+                <div class="card-body gap-3 p-6">
+                    <h2 class="card-title text-base font-bold text-base-content">
+                        查看指定视频
+                    </h2>
+                    <p class="text-sm text-base-content/60 m-0 leading-relaxed">
+                        输入 BV 号，或直接粘贴视频链接；从播放页状态条点「查看云端数据→」进入时，这里会自动带上当前
+                        BV。
+                    </p>
+                    <div class="flex flex-wrap items-stretch gap-2">
+                        <input
+                            class="input input-sm flex-1 min-w-0 font-mono"
+                            type="text"
+                            spellcheck={false}
+                            autocomplete="off"
+                            value={bvidDraft()}
+                            placeholder="BV1xx411c7mD 或 https://www.bilibili.com/video/BV..."
+                            onInput={(event) => {
+                                setBvidDraft(event.currentTarget.value);
+                                setBvidError("");
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") submitBvid();
+                            }}
+                        />
+                        <button class="btn btn-primary btn-sm" onClick={submitBvid}>
+                            查询
+                        </button>
+                    </div>
+                    <Show when={bvidError()}>
+                        <p class="text-xs text-error m-0">{bvidError()}</p>
+                    </Show>
+                </div>
+            </div>
+
+            <div class="card bg-base-100 shadow-sm border border-base-300 mb-8">
                 <div class="card-body gap-4 p-6">
                     <h2 class="card-title text-base font-bold text-base-content">
                         使用云端片段：{enabled() ? "已开启" : "已关闭"}
@@ -223,13 +288,12 @@ export default function CloudPage() {
                             />
                             <div>
                                 <h2 class="card-title text-base font-bold text-base-content">
-                                    没有 BV 号
+                                    还没有选择视频
                                 </h2>
                                 <p class="text-sm text-base-content/60 m-0 mt-2 leading-relaxed">
-                                    从 Popup 进入时不会带 BV
-                                    号，因此这里看不到数据。
-                                    请到播放页状态条点「查看云端数据→」进入，会带上当前
-                                    BV 和分 P。
+                                    在上方输入 BV 号或粘贴视频链接即可查询；
+                                    也可以到播放页状态条点「查看云端数据→」进入，
+                                    会自动带上当前 BV 和分 P。
                                 </p>
                             </div>
                         </div>

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
     cleanBiliUrl,
+    extractBvid,
     formatTime,
     getBvidFromUrl,
     pad,
@@ -24,6 +25,24 @@ describe("getBvidFromUrl", () => {
             getBvidFromUrl("https://www.bilibili.com/video/av123"),
         ).toBeNull();
         expect(getBvidFromUrl("https://www.bilibili.com/")).toBeNull();
+    });
+});
+
+describe("extractBvid", () => {
+    test("接受纯 BV 号与视频链接", () => {
+        expect(extractBvid("BV1M4sz6sEcu")).toBe("BV1M4sz6sEcu");
+        expect(
+            extractBvid(
+                "https://www.bilibili.com/video/BV1M4sz6sEcu/?p=2&spm_id_from=333",
+            ),
+        ).toBe("BV1M4sz6sEcu");
+        expect(extractBvid("  bv1M4sz6sEcu  ")).toBe("BV1M4sz6sEcu");
+    });
+
+    test("没有 BV 号时返回 null", () => {
+        expect(extractBvid("")).toBeNull();
+        expect(extractBvid("https://www.bilibili.com/video/av123")).toBeNull();
+        expect(extractBvid("BV123")).toBeNull();
     });
 });
 
