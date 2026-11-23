@@ -1,17 +1,17 @@
 // entrypoints/options/pages/History.tsx
-import { createSignal, For, onSettled, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { browser } from "wxt/browser";
 
 import { MAX_HISTORY_LENGTH, LATEST_HISTORY_LENGTH } from "@/utils/bilibili";
 
 import type { HistoryConfig } from "@/types/types";
-import { RobotVacuum, ScanEye, Trash } from "@lucide/solid";
+import { RobotVacuum, ScanEye, Trash } from "lucide-solid";
 
 export default function HistoryPage() {
     const [historyList, setHistoryList] = createSignal<HistoryConfig[]>([]);
 
     // 初始化加载
-    onSettled(() => {
+    onMount(() => {
         let alive = true;
         (async () => {
             try {

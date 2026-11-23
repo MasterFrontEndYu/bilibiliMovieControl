@@ -1,18 +1,18 @@
 // entrypoints/options/pages/Manual.tsx
-import { createSignal, For, onSettled, Show } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { browser } from "wxt/browser";
 
 import { MAX_HISTORY_LENGTH, PINNED_HISTORY_LENGTH } from "@/utils/bilibili";
 
 // 定义和 Background/Popup 一致的接口
 import type { HistoryConfig } from "@/types/types";
-import { HandFist, ScanEye, Trash } from "@lucide/solid";
+import { HandFist, ScanEye, Trash } from "lucide-solid";
 
 export default function ManualPage() {
     const [pinnedHistory, setPinnedHistory] = createSignal<HistoryConfig[]>([]);
 
     // 初始化加载
-    onSettled(() => {
+    onMount(() => {
         let alive = true;
         (async () => {
             try {

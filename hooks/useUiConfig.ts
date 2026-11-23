@@ -1,4 +1,4 @@
-import { createStore } from "solid-js";
+import { createStore } from "solid-js/store";
 import { browser } from "wxt/browser";
 import type { UiVisibility } from "@/types/types";
 import { DEFAULT_UI, normalizeUi, UI_STORAGE_KEY } from "@/utils/uiVisibility";

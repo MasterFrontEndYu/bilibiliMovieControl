@@ -1,11 +1,8 @@
 // 全项目共享的类型定义集中在此文件，实现文件里不再声明 type / interface。
 
-import type { Options as SolidPluginOptions } from "@solidjs/vite-plugin";
-
 // ============================================================
 // 时间
 // ============================================================
-
 export interface TimePoint {
     h: number; // 小时
     m: number; // 分钟
@@ -80,8 +77,6 @@ export interface HistorySnapshot {
 // 页面内悬浮条
 // ============================================================
 
-export type VideoUIConfig = Config;
-
 // ============================================================
 // 播放页 UI 显示开关
 // ============================================================
@@ -105,16 +100,6 @@ export interface UiVisibility {
     statusCloud: boolean;
 }
 
-export interface VideoUIHandle {
-    update: (
-        config: VideoUIConfig,
-        ui: UiVisibility,
-        cloudSegments?: SkipSegment[],
-        duration?: number,
-    ) => void;
-    destroy: () => void;
-}
-
 // ============================================================
 // 内容脚本操作区（按钮组 + 浮动窗口）
 // ============================================================
@@ -122,13 +107,6 @@ export interface VideoUIHandle {
 export type JumpPanelTab = "view" | "submit";
 
 export type JumpPanelConfig = Config;
-
-export interface JumpPanelHandle {
-    open: (tab?: JumpPanelTab) => void;
-    close: () => void;
-    update: (config: JumpPanelConfig) => void;
-    destroy: () => void;
-}
 
 /** 提交页交给外层（content）的数据 */
 export interface JumpPanelSubmitPayload {
@@ -138,6 +116,7 @@ export interface JumpPanelSubmitPayload {
     segments: SubmitSegmentInput[];
 }
 
+/** 浮动窗口需要 content 提供的回调 */
 export interface JumpPanelHandlers {
     onSubmit: (payload: JumpPanelSubmitPayload) => Promise<SubmitResult>;
     /** 上传成功后把新片段先乐观合并进播放规则 */
@@ -152,19 +131,6 @@ export interface JumpPanelHandlers {
     onPreview: (segment: SkipSegment) => void;
     getCurrentTime: () => number;
     getDuration: () => number;
-}
-
-export interface ActionButtonHandlers {
-    onView: () => void;
-    onSubmit: () => void;
-}
-
-/** 按钮配色：primary = 粉色（查看），secondary = 淡蓝（提交） */
-export type ActionButtonVariant = "primary" | "secondary";
-
-export interface ActionButtonsHandle {
-    update: (ui: UiVisibility) => void;
-    destroy: () => void;
 }
 
 // ============================================================
@@ -280,18 +246,4 @@ export interface SubmitResult {
     created?: unknown;
     /** 服务端返回的错误文本（如果有） */
     message?: string;
-}
-
-// ============================================================
-// WXT 自定义模块
-// ============================================================
-
-export interface SolidModuleOptions {
-    vite?: SolidPluginOptions;
-}
-
-declare module "wxt" {
-    export interface InlineConfig {
-        solid?: SolidModuleOptions;
-    }
 }

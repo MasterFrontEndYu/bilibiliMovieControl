@@ -1,5 +1,5 @@
 // entrypoints/popup/App.tsx
-import { Show, createSignal, onSettled } from "solid-js";
+import { Show, createSignal, onMount } from "solid-js";
 import { HistoryList } from "@/components/HistoryList";
 import { browser } from "wxt/browser";
 import {
@@ -11,7 +11,7 @@ import {
 } from "@/utils/bilibili";
 import type { HistoryConfig, JumpPanelTab } from "@/types/types";
 import { useConfig, initGlobalConfig } from "@/hooks/useStorageConfig";
-import { Eye, SaveCheck, Settings, SlidersHorizontal } from "@lucide/solid";
+import { Eye, SaveCheck, Settings, SlidersHorizontal } from "lucide-solid";
 
 export default function Index() {
     const { config } = useConfig(["segments"]);
@@ -87,7 +87,7 @@ export default function Index() {
         browser.tabs.create({ url: browser.runtime.getURL("/options.html") });
     };
 
-    onSettled(() => {
+    onMount(() => {
         (async () => {
             await initGlobalConfig();
             const res = await browser.storage.local.get([

@@ -1,5 +1,5 @@
 import { For, Show } from "solid-js";
-import { MonitorCog, TriangleAlert } from "@lucide/solid";
+import { MonitorCog, TriangleAlert } from "lucide-solid";
 import { useUiConfig } from "@/hooks/useUiConfig";
 import { DEFAULT_UI, isUiEmpty } from "@/utils/uiVisibility";
 import type { UiVisibility } from "@/types/types";

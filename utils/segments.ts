@@ -177,6 +177,22 @@ export function pickNextSegment(
 }
 
 /**
+ * 片段的实际结束位置：next 且 end <= start 时视为“到视频结尾”，
+ * 其余情况不超过视频时长。
+ */
+export function effectiveEnd(
+    segment: SkipSegment,
+    videoDuration: number,
+): number {
+    if (segment.kind === "next" && segment.end <= segment.start) {
+        return videoDuration > 0 ? videoDuration : segment.start;
+    }
+    return videoDuration > 0
+        ? Math.min(segment.end, videoDuration)
+        : segment.end;
+}
+
+/**
  * 读取片段配置；首次运行时自动把旧的 opRanges / jumpConfig 迁移过来，
  * 迁移完成后删除旧键。
  */

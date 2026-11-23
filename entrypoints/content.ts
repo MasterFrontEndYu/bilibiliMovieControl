@@ -1,5 +1,6 @@
 // entrypoints/content.ts
-// 内容脚本：原生 DOM + 直接读写 storage，不依赖 SolidJS
+// 内容脚本：配置 / 播放逻辑用原生 JS，界面用 Solid 1 渲染（手写 CSS，不引入 Tailwind）
+import { render } from "solid-js/web";
 import { browser } from "wxt/browser";
 import {
     getBvidFromUrl,
@@ -9,19 +10,21 @@ import {
 } from "@/utils/bilibili";
 import { loadSegments, parseCreatedSegments, pickNextSegment, saveSegments } from "@/utils/segments";
 import type {
-    ActionButtonsHandle,
     ApiSegment,
     ContentConfig,
-    JumpPanelHandle,
     JumpPanelSubmitPayload,
     JumpPanelTab,
     SkipSegment,
     SubmitResult,
     UiVisibility,
-    VideoUIHandle,
 } from "@/types/types";
-import { createActionButtons, createVideoUI } from "@/utils/videoUI";
-import { createJumpPanel } from "@/utils/jumpPanel";
+import { StatusRow } from "@/content-ui/StatusRow";
+import { JumpPanel } from "@/content-ui/JumpPanel";
+import {
+    closePanelState,
+    openPanelState,
+    updateUiData,
+} from "@/content-ui/state";
 import {
     DEFAULT_UI,
     isUiEmpty,
@@ -41,13 +44,13 @@ export default defineContentScript({
             ...DEFAULT_CONFIG,
             segments: [],
         };
-        let uiHandle: VideoUIHandle | null = null;
-        let actionsHandle: ActionButtonsHandle | null = null;
-        let panel: JumpPanelHandle | null = null;
-        let panelHost: HTMLElement | null = null;
         let previewRule: SkipSegment | null = null;
         /** 状态那一行的显示开关（只影响显示） */
         let uiVisibility: UiVisibility = { ...DEFAULT_UI };
+
+        /** 浮动窗口的 Solid 挂载点（#playerWrap 内的 display:contents 容器） */
+        let panelHostEl: HTMLElement | null = null;
+        let panelDispose: (() => void) | null = null;
 
         // ---------- popup：请求打开浮动窗口（片段查看 / 片段设置） ----------
         /** ok = 已打开；no-host = 播放器容器还没就绪；not-collection = 当前页不是合集 */
@@ -100,13 +103,12 @@ export default defineContentScript({
 
         /** 状态条需要同时感知手动/云端片段、视频时长和显示开关，统一走这里更新 */
         const syncUi = () => {
-            uiHandle?.update(
+            updateUiData({
                 config,
-                uiVisibility,
+                ui: uiVisibility,
                 cloudSegments,
-                currentDuration(),
-            );
-            actionsHandle?.update(uiVisibility);
+                duration: currentDuration(),
+            });
         };
 
         const loadConfig = async () => {
@@ -131,7 +133,6 @@ export default defineContentScript({
             }
 
             syncUi();
-            panel?.update(config);
         };
 
         /** 拉取云端片段并按类别映射成 skip / next */
@@ -328,6 +329,47 @@ export default defineContentScript({
             return cloudSegments;
         };
 
+        /** 清理浮动窗口（离开合集页 / 换 P / 脚本失效时） */
+        const disposePanel = () => {
+            panelDispose?.();
+            panelDispose = null;
+            panelHostEl?.remove();
+            panelHostEl = null;
+        };
+
+        /**
+         * 确保浮动窗口已挂载到当前 #playerWrap 内（容器被 SPA 替换时重建）。
+         */
+        const ensurePanel = (wrap: HTMLElement): boolean => {
+            if (panelHostEl && panelHostEl.parentElement === wrap) return true;
+
+            disposePanel();
+
+            const host = document.createElement("div");
+            host.style.display = "contents";
+            wrap.append(host);
+            panelHostEl = host;
+
+            panelDispose = render(
+                () =>
+                    JumpPanel({
+                        container: wrap,
+                        onSubmit: submitSegments,
+                        onUploaded: handleUploaded,
+                        onRefreshCloud: refreshCloudSegments,
+                        onSaveSegment: saveSegment,
+                        onDeleteSegment: deleteSegment,
+                        onSeek: seekTo,
+                        onPreview: previewSegment,
+                        getCurrentTime: () => getVideo()?.currentTime ?? 0,
+                        getDuration: () => currentDuration(),
+                    }),
+                host,
+            );
+
+            return true;
+        };
+
         /**
          * 打开浮动窗口（挂到 #playerWrap 内；容器被替换时自动重建）
          */
@@ -337,32 +379,15 @@ export default defineContentScript({
                 return "not-collection";
             }
 
-            const host = document.getElementById("playerWrap");
-            if (!host) {
+            const wrap = document.getElementById("playerWrap");
+            if (!wrap) {
                 console.warn("[BMC] 未找到 #playerWrap，浮动窗口无法打开");
                 return "no-host";
             }
 
-            if (!panel || panelHost !== host) {
-                panel?.destroy();
-                panel = createJumpPanel(host, config, {
-                    onSubmit: submitSegments,
-                    onUploaded: handleUploaded,
-                    onRefreshCloud: refreshCloudSegments,
-                    onSaveSegment: saveSegment,
-                    onDeleteSegment: deleteSegment,
-                    onSeek: seekTo,
-                    onPreview: previewSegment,
-                    getCurrentTime: () => getVideo()?.currentTime ?? 0,
-                    getDuration: () => {
-                        const duration = getVideo()?.duration ?? 0;
-                        return Number.isFinite(duration) ? duration : 0;
-                    },
-                });
-                panelHost = host;
-            }
+            if (!ensurePanel(wrap)) return "no-host";
 
-            panel.open(tab);
+            openPanelState(tab);
             return "ok";
         };
 
@@ -457,40 +482,20 @@ export default defineContentScript({
             position: "inline",
             anchor: () => document.getElementById(TARGET_ID) as HTMLElement,
             onMount: (container) => {
-                // 一行两段：左侧状态条，右侧操作按钮
-                const row = document.createElement("div");
-                row.style.cssText =
-                    "display:flex;align-items:center;justify-content:space-between;" +
-                    "gap:12px;width:100%;";
-
-                const left = document.createElement("div");
-                left.style.cssText =
-                    "display:inline-flex;align-items:center;min-width:0;";
-
-                const right = document.createElement("div");
-                right.style.cssText =
-                    "display:inline-flex;align-items:center;gap:8px;";
-
-                row.append(left, right);
-                container.append(row);
-
-                uiHandle = createVideoUI(left, openCloudPage);
-                syncUi();
-
-                actionsHandle = createActionButtons(
-                    right,
-                    {
-                        onView: () => openPanel("view"),
-                        onSubmit: () => openPanel("submit"),
-                    },
-                    uiVisibility,
+                const dispose = render(
+                    () =>
+                        StatusRow({
+                            onOpenCloud: openCloudPage,
+                            onView: () => openPanel("view"),
+                            onOpenSubmit: () => openPanel("submit"),
+                        }),
+                    container,
                 );
 
+                syncUi();
+
                 return () => {
-                    actionsHandle?.destroy();
-                    actionsHandle = null;
-                    uiHandle?.destroy();
-                    uiHandle = null;
+                    dispose();
                 };
             },
             onRemove: (unmount) => unmount?.(),
@@ -519,9 +524,8 @@ export default defineContentScript({
 
             // 只有离开合集页才清理浮动窗口；「全部隐藏」时 Popup 仍可打开面板
             if (!isCollection) {
-                panel?.destroy();
-                panel = null;
-                panelHost = null;
+                disposePanel();
+                closePanelState();
                 previewRule = null;
             }
         };
@@ -670,9 +674,8 @@ export default defineContentScript({
             syncUi();
 
             // 换 P / 换视频后 playerWrap 可能被替换，窗口留给下次重新创建
-            panel?.destroy();
-            panel = null;
-            panelHost = null;
+            disposePanel();
+            closePanelState();
         };
         ctx.addEventListener(window, "wxt:locationchange", locationChangeHandler);
 
@@ -702,9 +705,8 @@ export default defineContentScript({
         ctx.onInvalidated(() => {
             browser.storage.onChanged.removeListener(storageListener);
             browser.runtime.onMessage.removeListener(messageListener);
-            panel?.destroy();
-            panel = null;
-            panelHost = null;
+            disposePanel();
+            closePanelState();
             updateUi(false);
         });
     },

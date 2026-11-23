@@ -1,4 +1,4 @@
-import { createStore } from "solid-js";
+import { createStore } from "solid-js/store";
 import { browser } from "wxt/browser";
 import type { Config } from "@/types/types";
 import { loadSegments } from "@/utils/segments";

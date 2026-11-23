@@ -1,12 +1,12 @@
 import {
     For,
     Show,
+    createEffect,
     createSignal,
-    createTrackedEffect,
     untrack,
 } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
-import { Cloud, Info, RefreshCw, Vote } from "@lucide/solid";
+import { Cloud, Info, RefreshCw, Vote } from "lucide-solid";
 import { browser } from "wxt/browser";
 import { useConfig } from "@/hooks/useStorageConfig";
 import { extractBvid } from "@/utils/bilibili";
@@ -144,7 +144,7 @@ export default function CloudPage() {
 
     let lastBvid = "";
 
-    createTrackedEffect(() => {
+    createEffect(() => {
         const next = param("bvid");
         const nextPage = Number(param("page")) || 0;
 

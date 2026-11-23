@@ -1,5 +1,5 @@
 import { getSoftName } from "@/utils/bilibili";
-import { BadgeAlert } from "@lucide/solid";
+import { BadgeAlert } from "lucide-solid";
 
 export default function AboutPage() {
     return (
@@ -22,7 +22,7 @@ export default function AboutPage() {
                         技术栈
                     </h2>
                     <p class="m-0 text-sm text-base-content/70 leading-relaxed">
-                        WXT + SolidJS + TailwindCSS + DaisyUI + @lucide/solid；
+                        WXT + SolidJS + TailwindCSS + DaisyUI + lucide-solid；
                         云端片段查询与上传基于 BilibiliSponsorBlock API。
                     </p>
                 </div>

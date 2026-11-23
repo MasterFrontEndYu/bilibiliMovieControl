@@ -1,13 +1,13 @@
-import { onSettled } from "solid-js";
+import { onCleanup, onMount } from "solid-js";
 import {
     MAX_HISTORY_LENGTH,
     PINNED_HISTORY_LENGTH,
     LATEST_HISTORY_LENGTH,
 } from "@/utils/bilibili";
-import { Cloud, Film, HouseHeart, Info, Save } from "@lucide/solid";
+import { Cloud, Film, HouseHeart, Info, Save } from "lucide-solid";
 
 export default function Home() {
-    onSettled(() => {
+    onMount(() => {
         const scrollToSettings = () => {
             const query =
                 location.search.replace(/^\?/, "") ||
@@ -25,8 +25,9 @@ export default function Home() {
 
         scrollToSettings();
         window.addEventListener("hashchange", scrollToSettings);
-
-        return () => window.removeEventListener("hashchange", scrollToSettings);
+        onCleanup(() =>
+            window.removeEventListener("hashchange", scrollToSettings),
+        );
     });
 
     return (

@@ -1,9 +1,9 @@
 import {
     For,
     Show,
+    createEffect,
     createSignal,
-    createTrackedEffect,
-    onSettled,
+    onMount,
     untrack,
 } from "solid-js";
 import { useNavigate, useSearchParams } from "@solidjs/router";
@@ -17,7 +17,7 @@ import {
     ThumbsDown,
     ThumbsUp,
     Vote,
-} from "@lucide/solid";
+} from "lucide-solid";
 import { browser } from "wxt/browser";
 import { buildCloudPath, rememberCloudContext } from "@/utils/cloudContext";
 import { getOrCreateUserID } from "@/utils/userId";
@@ -170,7 +170,7 @@ export default function SegmentPage() {
         }
     };
 
-    createTrackedEffect(() => {
+    createEffect(() => {
         const nextUuid = param("uuid");
         const nextBvid = param("bvid");
         const nextPage = Number(param("page")) || 0;
@@ -193,7 +193,7 @@ export default function SegmentPage() {
         }
     });
 
-    onSettled(() => {
+    onMount(() => {
         void getOrCreateUserID()
             .then(setUserID)
             .catch(() => setStatus("私人 ID 读取失败，投票功能不可用"));
