@@ -1,5 +1,15 @@
 # B 站连播助手 (Bilibili Movie Control)
 
+## 1.5.0
+
+### Minor Changes
+
+- 统一ui 为solid 1x 版本
+- 修复，bug，新增功能
+- 添加进度条样式
+- 添加设置页面其他功能
+- 页面修复等等
+
 ## 1.4.0
 
 ### Minor Changes
